@@ -1,0 +1,85 @@
+"use client"
+
+import { LayoutDashboard, Brain, Briefcase, Target, Settings, User, MessageSquare, Shield } from "lucide-react"
+import type { ActiveView, ViewMode } from "@/app/portal/page"
+
+interface SidebarProps {
+  activeView: ActiveView
+  onViewChange: (view: ActiveView) => void
+  viewMode: ViewMode
+  showUCAT?: boolean
+}
+
+export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true }: SidebarProps) {
+  const navItems = [
+    { id: "dashboard" as ActiveView, icon: LayoutDashboard, label: "Overview" },
+    { id: "profile" as ActiveView, icon: User, label: "My Profile" },
+    { id: "portfolio" as ActiveView, icon: Briefcase, label: "Portfolio" },
+    ...(showUCAT ? [{ id: "ucat" as ActiveView, icon: Brain, label: "UCAT Performance" }] : []),
+    { id: "strategy" as ActiveView, icon: Target, label: "University Strategy" },
+    { id: "interview" as ActiveView, icon: MessageSquare, label: "Interview Prep" },
+    { id: "settings" as ActiveView, icon: Settings, label: "Settings" },
+  ]
+
+  return (
+    <aside className="w-64 bg-[#0B1120] border-r border-slate-800/50 flex flex-col">
+      {/* Logo */}
+      <div className="p-6 border-b border-slate-800/50">
+        <h1 className="text-2xl font-serif text-[#D4AF37] tracking-widest">REGENT&apos;S</h1>
+        <p className="text-xs text-slate-400 mt-1 font-light">Private Client Portal</p>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-1">
+        {navItems.map((item) => {
+          const Icon = item.icon
+          const isActive = activeView === item.id
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => onViewChange(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-none transition-colors ${
+                isActive
+                  ? "bg-[#D4AF37]/10 text-[#D4AF37] border-l-2 border-[#D4AF37]"
+                  : "text-slate-300 hover:bg-white/5 hover:text-slate-200"
+              }`}
+            >
+              <Icon size={20} strokeWidth={1.5} />
+              <span className="text-sm font-light">{item.label}</span>
+            </button>
+          )
+        })}
+      </nav>
+
+      {/* Admin Section */}
+      <div className="p-4 border-t border-slate-800/50 mt-auto">
+        <button
+          onClick={() => onViewChange("admin")}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-none transition-colors ${
+            activeView === "admin"
+              ? "bg-[#D4AF37]/10 text-[#D4AF37] border-l-2 border-[#D4AF37]"
+              : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
+          }`}
+        >
+          <Shield size={20} strokeWidth={1.5} />
+          <span className="text-xs font-light uppercase tracking-wider">Consultant Access</span>
+        </button>
+      </div>
+
+      {/* User Profile */}
+      <div className="p-4 border-t border-slate-800/50">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white/5 backdrop-blur-sm rounded-none border border-white/10">
+          <div className="w-10 h-10 rounded-none bg-slate-700/50 flex items-center justify-center border border-slate-600/50">
+            <User size={20} className="text-slate-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-light text-slate-200">Ella Lewis</p>
+            <p className="text-xs text-slate-400 capitalize font-light">{viewMode}</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}
+

@@ -1,0 +1,10 @@
+# Cloudflare Pages configuration
+# This file tells Cloudflare to use npm instead of pnpm
+
+name = "regents-consultancy"
+compatibility_date = "2024-01-01"
+
+[build]
+command = "npm install && npm run build"
+publish = ".next"
+

@@ -1,0 +1,25 @@
+<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #020617; }
+      .fg { fill: #FACC15; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #020617; }
+      .fg { fill: #FACC15; }
+    }
+  </style>
+  <rect class="bg" width="180" height="180" rx="40" />
+  <text
+    x="50%"
+    y="50%"
+    dominant-baseline="central"
+    text-anchor="middle"
+    class="fg"
+    font-family="serif"
+    font-size="96"
+    letter-spacing="4"
+  >
+    R
+  </text>
+</svg>
