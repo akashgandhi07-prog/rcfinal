@@ -20,7 +20,7 @@ export function CTASection() {
           </p>
           <SuitabilityAssessmentForm
             trigger={
-              <Button className="bg-[#D4AF37] text-black hover:bg-[#C9A530] font-light px-10 h-12 text-base rounded-lg">
+              <Button className="bg-[#D4AF37] text-black hover:bg-[#C9A530] font-light px-10 h-12 text-base rounded-lg shadow-lg shadow-[#D4AF37]/20 hover:shadow-xl hover:shadow-[#D4AF37]/30 hover:-translate-y-0.5 transition-all duration-300 active:translate-y-0">
                 Request Clinical Consultation
               </Button>
             }

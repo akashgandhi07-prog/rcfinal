@@ -15,10 +15,7 @@ export function PlacementRecord() {
     "Imperial",
     "UCL",
     "King's College London",
-    "LSE",
-    "Bristol",
     "Edinburgh",
-    "Manchester",
   ]
 
   return (
@@ -48,7 +45,7 @@ export function PlacementRecord() {
               initial={{ opacity: 0, y: 16 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: index * 0.04 }}
-              className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-5 md:px-5 md:py-6 shadow-sm shadow-black/40"
+              className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-5 md:px-5 md:py-6 shadow-lg shadow-black/40 hover:shadow-xl hover:shadow-black/50 hover:border-[#D4AF37]/20 transition-all duration-300 hover:-translate-y-1"
             >
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 border border-white/15">
                 <GraduationCap className="h-5 w-5 text-[#D4AF37]" />

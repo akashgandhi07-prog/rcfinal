@@ -1,6 +1,8 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { useState } from "react"
 
 export function CandidacyQueries() {
   const faqs = [
@@ -21,6 +23,8 @@ export function CandidacyQueries() {
     },
   ]
 
+  const [openValue, setOpenValue] = useState<string>("item-0")
+
   return (
     <section className="py-32 bg-slate-950">
       <div className="container mx-auto px-6">
@@ -36,27 +40,38 @@ export function CandidacyQueries() {
           </h2>
         </motion.div>
 
-        <div className="max-w-3xl mx-auto space-y-4">
-          {faqs.map((faq, index) => (
-            <motion.details
-              key={faq.question}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="border border-white/10 bg-[#0B1120] group"
+        <div className="max-w-3xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <Accordion 
+              type="single" 
+              value={openValue}
+              onValueChange={(value) => {
+                // Ensure at least one is always open - if value is empty, keep current open
+                setOpenValue(value || openValue)
+              }}
+              className="space-y-4"
             >
-              <summary className="px-6 py-5 cursor-pointer list-none font-serif text-lg text-white font-light hover:text-[#D4AF37] transition-colors flex items-center justify-between">
-                <span>{faq.question}</span>
-                <span className="text-[#D4AF37] text-2xl ml-4 transition-transform group-open:rotate-45">
-                  +
-                </span>
-              </summary>
-              <div className="px-6 pb-5 pt-0">
-                <p className="text-slate-300 leading-relaxed font-light">{faq.answer}</p>
-              </div>
-            </motion.details>
-          ))}
+              {faqs.map((faq, index) => (
+                <AccordionItem
+                  key={faq.question}
+                  value={`item-${index}`}
+                  className="border border-white/10 bg-[#0B1120] rounded-lg shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30 transition-shadow duration-300"
+                >
+                  <AccordionTrigger className="px-6">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-slate-200 leading-relaxed font-light">{faq.answer}</p>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </motion.div>
         </div>
       </div>
     </section>

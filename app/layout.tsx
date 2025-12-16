@@ -21,7 +21,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "The Regent's Consultancy | Elite Admissions Strategy for UK Clinical Schools",
   description:
-    "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practicing NHS Surgeons and Clinicians.",
+    "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors and Dentists and Qualified Veterinary Surgeons.",
   generator: "v0.app",
   icons: {
     icon: [

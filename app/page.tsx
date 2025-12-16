@@ -3,6 +3,7 @@ import { HeroSection } from "@/components/hero-section"
 import { TrustedDestinations } from "@/components/trusted-destinations"
 import { StrategicRoadmap } from "@/components/strategic-roadmap"
 import { PrivateOfficeProtocol } from "@/components/private-office-protocol"
+import { PostOfferGuarantee } from "@/components/post-offer-guarantee"
 import { ClinicalPhilosophy } from "@/components/clinical-philosophy"
 import { ClinicalBoard } from "@/components/clinical-board"
 import { DirectorsStatement } from "@/components/directors-statement"
@@ -24,6 +25,7 @@ export default function Page() {
         <TrustedDestinations />
         <StrategicRoadmap />
         <PrivateOfficeProtocol />
+        <PostOfferGuarantee />
         <ClinicalPhilosophy />
         <ClinicalBoard />
         <DirectorsStatement />

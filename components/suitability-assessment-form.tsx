@@ -124,12 +124,12 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="bg-white border-slate-200 max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl px-6 py-6 md:px-10 md:py-8">
+      <DialogContent className="bg-white border-slate-200 max-w-4xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto rounded-2xl px-4 py-5 md:px-10 md:py-8">
         <DialogHeader>
           <DialogTitle className="text-2xl md:text-3xl font-serif text-slate-900 font-light">
             Apply for Suitability Assessment
           </DialogTitle>
-          <div className="mt-3 flex items-center justify-between text-xs md:text-sm text-slate-500">
+          <div className="mt-3 flex items-center justify-between text-xs md:text-sm text-slate-700">
             <span className="font-light">
               Step {step} of 3
             </span>
@@ -150,7 +150,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
           {/* Step 1: Personal Information */}
           {step === 1 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-light text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-2">
+            <h3 className="text-sm font-light text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
               Personal Information
             </h3>
 
@@ -163,7 +163,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   id="firstName"
                   value={formData.firstName}
                   onChange={(e) => updateField("firstName", e.target.value)}
-                  className="border-slate-300 text-slate-900 rounded-lg"
+                  className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
                   required
                 />
               </div>
@@ -176,7 +176,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   id="lastName"
                   value={formData.lastName}
                   onChange={(e) => updateField("lastName", e.target.value)}
-                  className="border-slate-300 text-slate-900 rounded-lg"
+                  className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
                   required
                 />
               </div>
@@ -192,7 +192,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   type="email"
                   value={formData.email}
                   onChange={(e) => updateField("email", e.target.value)}
-                  className="border-slate-300 text-slate-900 rounded-lg"
+                  className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
                   required
                 />
               </div>
@@ -206,7 +206,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   type="tel"
                   value={formData.phoneNumber}
                   onChange={(e) => updateField("phoneNumber", e.target.value)}
-                  className="border-slate-300 text-slate-900 rounded-lg"
+                  className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
                   required
                 />
               </div>
@@ -217,7 +217,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                 Are You A Student Or Guardian? <span className="text-red-500">*</span>
               </Label>
               <Select value={formData.isStudent} onValueChange={(value) => updateField("isStudent", value)} required>
-              <SelectTrigger className="border-slate-300 text-slate-900 rounded-xl h-11 px-4 shadow-[0_0_0_1px_rgba(15,23,42,0.04)]">
+              <SelectTrigger className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full">
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
                 <SelectContent className="bg-white border-slate-200 rounded-lg">
@@ -235,7 +235,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                 id="country"
                 value={formData.country}
                 onChange={(e) => updateField("country", e.target.value)}
-                className="border-slate-300 text-slate-900 rounded-lg"
+                className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
                 required
               />
             </div>
@@ -245,7 +245,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
           {/* Step 2: Academic Information */}
           {step === 2 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-light text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-2">
+            <h3 className="text-sm font-light text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
               Academic Information
             </h3>
 
@@ -257,7 +257,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                 id="schoolName"
                 value={formData.schoolName}
                 onChange={(e) => updateField("schoolName", e.target.value)}
-                className="border-slate-300 text-slate-900 rounded-lg"
+                className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
                 placeholder="If graduated - please state both sixth form & university attended and course studied"
                 required
               />
@@ -273,7 +273,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   onValueChange={(value) => updateField("universityEntryYear", value)}
                   required
                 >
-                <SelectTrigger className="border-slate-300 text-slate-900 rounded-xl h-11 px-4 shadow-[0_0_0_1px_rgba(15,23,42,0.04)]">
+                <SelectTrigger className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full">
                   <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-slate-200 rounded-lg">
@@ -296,7 +296,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   onValueChange={(value) => updateField("yearOfStudy", value)}
                   required
                 >
-                <SelectTrigger className="border-slate-300 text-slate-900 rounded-xl h-11 px-4 shadow-[0_0_0_1px_rgba(15,23,42,0.04)]">
+                <SelectTrigger className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full">
                   <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-slate-200 rounded-lg">
@@ -319,7 +319,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   Subject (that you are applying for) <span className="text-red-500">*</span>
                 </Label>
                 <Select value={formData.subject} onValueChange={(value) => updateField("subject", value)} required>
-                  <SelectTrigger className="border-slate-300 text-slate-900 rounded-xl h-11 px-4 shadow-[0_0_0_1px_rgba(15,23,42,0.04)]">
+                  <SelectTrigger className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full">
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-slate-200 rounded-lg">
@@ -340,7 +340,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                   type="date"
                   value={formData.studentDOB}
                   onChange={(e) => updateField("studentDOB", e.target.value)}
-                  className="border-slate-300 text-slate-900 rounded-lg"
+                  className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
                   required
                 />
               </div>
@@ -351,7 +351,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
           {/* Step 3: Additional Information */}
           {step === 3 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-light text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-2">
+            <h3 className="text-sm font-light text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
               Additional Information
             </h3>
 
@@ -363,7 +363,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                 id="notes"
                 value={formData.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
-                className="border-slate-300 text-slate-900 rounded-lg min-h-32"
+                className="border-slate-300 text-slate-900 rounded-lg min-h-32 text-base px-4 py-3 w-full"
                 placeholder="Please provide any additional information that would be helpful..."
               />
             </div>
@@ -396,7 +396,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
 
           {/* Navigation / Submit Buttons */}
           <div className="flex flex-col gap-3 pt-4 border-t border-slate-200 md:flex-row md:items-center md:justify-between">
-            <div className="text-xs text-slate-500 font-light">
+            <div className="text-xs text-slate-700 font-light">
               You can review and edit your answers before submitting.
             </div>
             <div className="flex justify-end gap-3">
@@ -412,7 +412,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                     setSubmitStatus("idle")
                   }
                 }}
-                className="border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-light"
+                className="border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-light shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:translate-y-0"
                 disabled={isSubmitting}
               >
                 {step === 1 ? "Cancel" : "Back"}
@@ -421,7 +421,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
               {step < 3 ? (
                 <Button
                   type="button"
-                  className="bg-slate-900 text-white hover:bg-slate-800 rounded-lg font-light"
+                  className="bg-slate-900 text-white hover:bg-slate-800 rounded-lg font-light shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 transition-all duration-300 active:translate-y-0"
                   onClick={() => {
                     const nextStep = (step + 1) as 1 | 2 | 3
                     if (!validateStep(step)) return
@@ -434,7 +434,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
               ) : (
                 <Button
                   type="submit"
-                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light"
+                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light shadow-lg shadow-[#D4AF37]/20 hover:shadow-xl hover:shadow-[#D4AF37]/30 hover:-translate-y-0.5 transition-all duration-300 active:translate-y-0 disabled:hover:translate-y-0 disabled:hover:shadow-lg"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (

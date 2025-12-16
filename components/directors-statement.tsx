@@ -18,7 +18,7 @@ export function DirectorsStatement() {
               A Note from the Clinical Director
             </h2>
             <div className="pl-4 md:pl-8 border-l-2 border-[#D4AF37]/30">
-              <p className="font-serif text-lg md:text-xl text-slate-300 leading-relaxed font-light">
+              <p className="font-serif text-lg md:text-xl text-slate-200 leading-relaxed font-light">
                 Medicine is not a degree; it is a vocation. In the private sector, we see many
                 agencies selling &apos;tuition&apos;. We founded Regent&apos;s to offer something
                 different: mentorship. We do not simply help your child pass an exam; we shape the

@@ -42,12 +42,12 @@ export function AdmissionsIntelligence() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
-              className="border border-white/10 bg-slate-950 p-8 space-y-4 hover:border-[#D4AF37]/30 transition-colors"
+              className="border border-white/10 bg-slate-950 p-8 space-y-4 hover:border-[#D4AF37]/30 transition-all duration-300 shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-1"
             >
               <h3 className="font-serif text-xl text-white font-light leading-tight">
                 {article.title}
               </h3>
-              <p className="text-slate-400 text-sm leading-relaxed font-light">
+              <p className="text-slate-300 text-sm leading-relaxed font-light">
                 {article.description}
               </p>
               <a

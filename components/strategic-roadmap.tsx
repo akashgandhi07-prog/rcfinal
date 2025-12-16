@@ -5,24 +5,39 @@ import { motion } from "framer-motion"
 export function StrategicRoadmap() {
   const stages = [
     {
-      title: "University Selection",
-      description: "Data-driven analysis of clinical strengths to select the strategic G5 options.",
+      phase: 1,
+      title: "Bespoke Onboarding & Clinical Strategy",
+      description: "A Personal Clinical Consultation with your Lead Mentor to define the Clinical Persona and establish all candidacy milestones. Includes immediate identification of profile strengths and weaknesses.",
       position: "left",
     },
     {
-      title: "Admissions Testing Strategy",
-      description: "High-performance coaching for UCAT & university-specific entrance assessments.",
+      phase: 2,
+      title: "Clinical Portfolio Development & Supracurricular Excellence",
+      description: "Curated placement of high-impact clinical work experience, structured volunteering programmes, and research opportunities. Our network of NHS Consultants, research institutions, and clinical settings ensures each candidate builds a distinguished portfolio that demonstrates genuine commitment to clinical practice. We orchestrate placements that showcase leadership, empathy, and intellectual curiosity—the hallmarks of exceptional medical candidates.",
       position: "right",
     },
     {
-      title: "Personal Statement",
-      description:
-        "Narrative construction and line-by-line editing by NHS Doctors to craft the 'Clinical Persona'needed to exceed.",
+      phase: 3,
+      title: "High-Performance Admissions Testing (UCAT)",
+      description: "Intensive, customised coaching for the UCAT. Delivered by Mentors with a proven track record of high-performance scoring to secure competitive results.",
       position: "left",
     },
     {
-      title: "Interview Strategy",
-      description: "MMI & Panel interview preparation focusing on medical ethics and NHS hot topics.",
+      phase: 4,
+      title: "Crafting the 'Clinical Persona' (Personal Statement)",
+      description: "Personal Statement Construction: Narrative creation and line-by-line editing by practicing NHS Consultants. We ensure the crafting of a compelling Clinical Persona that resonates with admissions committees.",
+      position: "right",
+    },
+    {
+      phase: 5,
+      title: "Data-Driven Strategic Selection",
+      description: "Strategic University Selection: Data-driven analysis of G5 options and medical/dental/veterinary schools based on the candidate's clinical profile. Ongoing Counselling: Monthly check-ins to align all academic and non-academic milestones.",
+      position: "left",
+    },
+    {
+      phase: 6,
+      title: "MMI and Panel Interview Mastery",
+      description: "Clinical Interview Strategy: Intensive MMI simulation and panel preparation focusing on advanced medical ethics and NHS hot topics. All simulations are conducted exclusively by GMC Doctors, GDC Dentists, and RCVS Vets.",
       position: "right",
     },
   ]
@@ -47,7 +62,7 @@ export function StrategicRoadmap() {
           <div className="space-y-16">
             {stages.map((stage, index) => (
               <motion.div
-                key={stage.title}
+                key={stage.phase}
                 initial={{ opacity: 0, x: stage.position === "left" ? -40 : 40 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
@@ -67,8 +82,11 @@ export function StrategicRoadmap() {
                       : "md:col-start-2 md:text-left md:pl-12"
                   }`}
                 >
+                  <div className="text-xs text-[#D4AF37] uppercase tracking-wider mb-2 font-light">
+                    Phase {stage.phase}
+                  </div>
                   <h3 className="font-serif text-2xl text-white mb-3 font-light">{stage.title}</h3>
-                  <p className="text-slate-400 font-light leading-relaxed">{stage.description}</p>
+                  <p className="text-slate-300 font-light leading-relaxed">{stage.description}</p>
                 </div>
 
                 {/* Empty space for alternating layout on desktop */}

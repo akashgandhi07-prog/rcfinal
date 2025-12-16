@@ -26,7 +26,7 @@ export function HeroSection() {
           transition={{ duration: 0.8, ease: "easeOut" }}
           className="inline-block text-amber-400 text-xs uppercase px-4 py-2 mb-8 tracking-wider font-light"
         >
-          Acceptance subject to Clinical Interview
+          Acceptance subject to Eligibility Interview
         </motion.div>
 
         <motion.h1
@@ -44,8 +44,7 @@ export function HeroSection() {
           transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
           className="text-lg md:text-xl text-slate-200 mb-12 max-w-2xl mx-auto leading-relaxed font-light"
         >
-          Bespoke candidacy management for Medicine, Dentistry, and Veterinary Medicine. Led by practicing NHS Surgeons
-          and Clinicians.
+          Bespoke candidacy management for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors and Dentists and Qualified Veterinary Surgeons.
         </motion.p>
 
         <motion.div
@@ -55,7 +54,7 @@ export function HeroSection() {
         >
           <SuitabilityAssessmentForm
             trigger={
-              <Button className="bg-[#D4AF37] text-black hover:bg-[#C5A028] rounded-lg px-10 h-12 text-base font-medium">
+              <Button className="bg-[#D4AF37] text-black hover:bg-[#C5A028] rounded-lg px-10 h-12 text-base font-medium shadow-lg shadow-[#D4AF37]/20 hover:shadow-xl hover:shadow-[#D4AF37]/30 hover:-translate-y-0.5 transition-all duration-300 active:translate-y-0">
                 Apply for Suitability Assessment
               </Button>
             }
