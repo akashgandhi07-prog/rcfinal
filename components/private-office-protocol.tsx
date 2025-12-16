@@ -23,7 +23,7 @@ export function PrivateOfficeProtocol() {
     {
       icon: Users,
       title: "Expert Counselling",
-      description: "Regular strategy sessions to align academic and clinical milestones.",
+      description: "Regular strategy sessions to align academic and professional milestones.",
     },
   ]
 
@@ -45,7 +45,7 @@ export function PrivateOfficeProtocol() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {services.map((service, index) => {
             const Icon = service.icon
             return (
@@ -55,14 +55,12 @@ export function PrivateOfficeProtocol() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="text-center space-y-4"
+                className="text-left space-y-3"
               >
-                <div className="flex justify-center">
-                  <div className="p-4 border border-[#D4AF37]/20 rounded-sm bg-[#D4AF37]/5 shadow-md shadow-[#D4AF37]/10 hover:shadow-lg hover:shadow-[#D4AF37]/20 transition-all duration-300">
-                    <Icon className="w-6 h-6 text-[#D4AF37]" strokeWidth={1.5} />
-                  </div>
+                <div className="p-3 border border-[#D4AF37]/20 rounded-lg bg-[#D4AF37]/5 w-fit">
+                  <Icon className="w-5 h-5 text-[#D4AF37]" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-serif text-xl text-white font-light">{service.title}</h3>
+                <h3 className="font-serif text-lg text-white font-light">{service.title}</h3>
                 <p className="text-slate-300 text-sm leading-relaxed font-light">
                   {service.description}
                 </p>

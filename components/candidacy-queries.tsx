@@ -9,7 +9,7 @@ export function CandidacyQueries() {
     {
       question: "What happens if a candidate is not successful?",
       answer:
-        "We offer comprehensive gap year strategy and re-application support. Our programme includes targeted skill development, additional clinical exposure, and refined interview preparation to strengthen candidacy for the following cycle.",
+        "We offer comprehensive gap year strategy and re-application support. Our programme includes targeted skill development, additional professional exposure, and refined interview preparation to strengthen candidacy for the following cycle.",
     },
     {
       question: "Do you work with students outside of the UK?",
@@ -19,7 +19,12 @@ export function CandidacyQueries() {
     {
       question: "When should we commence the strategy?",
       answer:
-        "Year 11 is optimal for profiling and early strategy development. Year 12 is the standard execution phase for most candidates. Early engagement allows for more comprehensive clinical exposure and stronger personal statement development.",
+        "Year 11 is optimal for profiling and early strategy development, with our comprehensive programme designed to secure guaranteed placement pathways for Year 12 and Year 13. Year 12 is the standard execution phase for most candidates. Early engagement allows for more comprehensive professional exposure and stronger personal statement development, ensuring candidates are fully prepared and positioned for success when application cycles begin.",
+    },
+    {
+      question: "Do you work with schools and admissions counsellors?",
+      answer:
+        "Yes. We partner with leading international schools and independent admissions counsellors worldwide, serving as the expert authority on UK medical school admissions. Our team provides strategic consultation, training, and support to counsellors, ensuring they can offer their students the most current and effective guidance. We work collaboratively with educational institutions across the globe, from IB schools in Asia and the Middle East to American curriculum schools in Europe, providing bespoke support that complements existing counselling services.",
     },
   ]
 
@@ -62,11 +67,11 @@ export function CandidacyQueries() {
                   value={`item-${index}`}
                   className="border border-white/10 bg-[#0B1120] rounded-lg shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30 transition-shadow duration-300"
                 >
-                  <AccordionTrigger className="px-6">
+                  <AccordionTrigger className="px-4 sm:px-6 text-left">
                     {faq.question}
                   </AccordionTrigger>
-                  <AccordionContent>
-                    <p className="text-slate-200 leading-relaxed font-light">{faq.answer}</p>
+                  <AccordionContent className="px-4 sm:px-6">
+                    <p className="text-slate-200 leading-relaxed font-light text-left">{faq.answer}</p>
                   </AccordionContent>
                 </AccordionItem>
               ))}

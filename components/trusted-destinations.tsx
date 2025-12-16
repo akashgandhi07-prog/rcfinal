@@ -110,30 +110,30 @@ export function TrustedDestinations() {
   const universities = [
     {
       name: "OXFORD",
-      hasCustomLogo: true,
-      logo: OxfordLogo,
+      hasCustomLogo: false,
+      logo: DegreeHatIcon,
     },
     {
       name: "CAMBRIDGE",
-      hasCustomLogo: true,
-      logo: CambridgeLogo,
+      hasCustomLogo: false,
+      logo: DegreeHatIcon,
     },
     {
       name: "IMPERIAL COLLEGE LONDON",
-      hasCustomLogo: true,
-      logo: ImperialLogo,
+      hasCustomLogo: false,
+      logo: DegreeHatIcon,
     },
     {
       name: "UCL",
-      hasCustomLogo: true,
-      logo: UCLLogo,
+      hasCustomLogo: false,
+      logo: DegreeHatIcon,
     },
     {
       name: "KING'S COLLEGE LONDON",
       hasCustomLogo: false,
     },
     {
-      name: "LSE",
+      name: "QMUL",
       hasCustomLogo: false,
     },
     {
@@ -156,12 +156,12 @@ export function TrustedDestinations() {
           transition={{ duration: 0.8 }}
           className="text-center font-serif text-5xl md:text-6xl lg:text-7xl text-[#D4AF37] uppercase tracking-[0.15em] mb-24 md:mb-32 font-light"
         >
-          PLACEMENT RECORD
+          UK Universities
         </motion.h2>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
           {universities.map((uni, index) => {
-            const LogoComponent = uni.logo
+            const LogoComponent = DegreeHatIcon
             return (
               <motion.div
                 key={uni.name}
@@ -172,15 +172,9 @@ export function TrustedDestinations() {
                 className="flex items-center justify-center"
               >
                 <div className="w-full aspect-[3/2] flex flex-col items-center justify-center border border-[#D4AF37]/20 rounded-none px-4 py-6 bg-gradient-to-br from-white/5 to-transparent">
-                  {uni.hasCustomLogo && LogoComponent ? (
-                    <div className="text-[#D4AF37]/85 w-full h-full max-w-[140px] max-h-[100px] mb-3 flex items-center justify-center">
-                      <LogoComponent />
-                    </div>
-                  ) : (
-                    <div className="text-[#D4AF37]/85 mb-3">
-                      <DegreeHatIcon />
-                    </div>
-                  )}
+                  <div className="text-[#D4AF37]/85 mb-3">
+                    <LogoComponent />
+                  </div>
                   <span className="text-[#D4AF37] text-xs md:text-sm font-serif text-center uppercase tracking-widest leading-tight">
                     {uni.name}
                   </span>

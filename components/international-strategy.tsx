@@ -17,7 +17,7 @@ export function InternationalStrategy() {
             Global Access, Local Expertise
           </h2>
           <p className="text-slate-400 text-sm uppercase tracking-wider font-light">
-            Bridging the gap between International Curriculums and UK Clinical Schools
+            Bridging the gap between International Curriculums and UK Medical Schools
           </p>
         </motion.div>
 
@@ -246,10 +246,9 @@ export function InternationalStrategy() {
               </div>
 
               <div className="border-l-2 border-[#D4AF37] pl-6">
-                <h3 className="text-xl font-serif text-slate-300 mb-2 font-light">Relocation Support</h3>
+                <h3 className="text-xl font-serif text-slate-300 mb-2 font-light">Partnership with Schools & Counsellors</h3>
                 <p className="text-slate-400 text-sm leading-relaxed font-light">
-                  Comprehensive assistance with UK visa processes, accommodation guidance, and cultural transition
-                  support. We help international students navigate the practicalities of studying medicine in the UK.
+                  We serve as the expert authority on UK medical school admissions for leading international schools and independent admissions counsellors worldwide. Our team provides strategic consultation, training, and ongoing support to counsellors, ensuring they can offer their students the most current and effective guidance. We work collaboratively with educational institutions across the globe, complementing existing counselling services with our deep expertise in UK medical, dental, and veterinary admissions.
                 </p>
               </div>
             </div>

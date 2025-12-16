@@ -6,7 +6,7 @@ import { useRef } from "react"
 
 const testimonials = [
   {
-    quote: "The level of clinical insight was extraordinary. My son didn't just pass the interview; he enjoyed it. The team's deep understanding of what medical schools are truly looking for transformed his entire approach. From the initial strategy sessions to the final interview preparation, every interaction demonstrated their expertise and genuine commitment to his success.",
+    quote: "The level of professional insight was extraordinary. My son didn't just pass the interview; he enjoyed it. The team's deep understanding of what medical schools are truly looking for transformed his entire approach. From the initial strategy sessions to the final interview preparation, every interaction demonstrated their expertise and genuine commitment to his success.",
     attribution: "Parent of Medical Student, Oxford",
   },
   {

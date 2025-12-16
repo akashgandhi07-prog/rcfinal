@@ -20,7 +20,7 @@ export function AdmissionsIntelligence() {
   ]
 
   return (
-    <section className="py-32 bg-[#0B1120]">
+    <section className="py-16 md:py-20 bg-[#0B1120]">
       <div className="container mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

@@ -31,7 +31,7 @@ export function ClinicalInterventions() {
           className="text-center mb-16"
         >
           <h2 className="font-serif text-4xl md:text-5xl text-white mb-4 font-light">
-            Clinical Interventions
+            Professional Interventions
           </h2>
           <p className="text-slate-400 text-sm uppercase tracking-wider font-light">
             Before & After

@@ -106,7 +106,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const steps = [
     { number: 1, title: "Personal Details", description: "Your information and parent/guardian contacts" },
     { number: 2, title: "Academic Profile", description: "School, qualifications, and predictions" },
-    { number: 3, title: "Course Selection", description: "Your target clinical course" },
+    { number: 3, title: "Course Selection", description: "Your target medical course" },
   ]
 
   return (

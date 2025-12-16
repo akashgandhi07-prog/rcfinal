@@ -6,14 +6,14 @@ export function StrategicRoadmap() {
   const stages = [
     {
       phase: 1,
-      title: "Bespoke Onboarding & Clinical Strategy",
-      description: "A Personal Clinical Consultation with your Lead Mentor to define the Clinical Persona and establish all candidacy milestones. Includes immediate identification of profile strengths and weaknesses.",
+      title: "Bespoke Onboarding & Professional Strategy",
+      description: "A Personal Professional Consultation with your Lead Mentor to define the Professional Persona and establish all candidacy milestones. Includes immediate identification of profile strengths and weaknesses.",
       position: "left",
     },
     {
       phase: 2,
-      title: "Clinical Portfolio Development & Supracurricular Excellence",
-      description: "Curated placement of high-impact clinical work experience, structured volunteering programmes, and research opportunities. Our network of NHS Consultants, research institutions, and clinical settings ensures each candidate builds a distinguished portfolio that demonstrates genuine commitment to clinical practice. We orchestrate placements that showcase leadership, empathy, and intellectual curiosity—the hallmarks of exceptional medical candidates.",
+      title: "Professional Portfolio Development & Supracurricular Excellence",
+      description: "Curated placement of high-impact professional work experience, structured volunteering programmes, and research opportunities. Our network of NHS Consultants, research institutions, and professional settings ensures each candidate builds a distinguished portfolio that demonstrates genuine commitment to professional practice. We orchestrate placements that showcase leadership, empathy, and intellectual curiosity—the hallmarks of exceptional medical candidates.",
       position: "right",
     },
     {
@@ -24,20 +24,20 @@ export function StrategicRoadmap() {
     },
     {
       phase: 4,
-      title: "Crafting the 'Clinical Persona' (Personal Statement)",
-      description: "Personal Statement Construction: Narrative creation and line-by-line editing by practicing NHS Consultants. We ensure the crafting of a compelling Clinical Persona that resonates with admissions committees.",
+      title: "Crafting the 'Professional Persona' (Personal Statement)",
+      description: "Personal Statement Construction: Narrative creation and line-by-line editing by practicing NHS Consultants. We ensure the crafting of a compelling Professional Persona that resonates with admissions committees.",
       position: "right",
     },
     {
       phase: 5,
       title: "Data-Driven Strategic Selection",
-      description: "Strategic University Selection: Data-driven analysis of G5 options and medical/dental/veterinary schools based on the candidate's clinical profile. Ongoing Counselling: Monthly check-ins to align all academic and non-academic milestones.",
+      description: "Strategic University Selection: Data-driven analysis of G5 options and medical/dental/veterinary schools based on the candidate's professional profile. Ongoing Counselling: Monthly check-ins to align all academic and non-academic milestones.",
       position: "left",
     },
     {
       phase: 6,
       title: "MMI and Panel Interview Mastery",
-      description: "Clinical Interview Strategy: Intensive MMI simulation and panel preparation focusing on advanced medical ethics and NHS hot topics. All simulations are conducted exclusively by GMC Doctors, GDC Dentists, and RCVS Vets.",
+      description: "Professional Interview Strategy: Intensive MMI simulation and panel preparation focusing on advanced medical ethics and NHS hot topics. All simulations are conducted exclusively by GMC Doctors, GDC Dentists, and RCVS Vets.",
       position: "right",
     },
   ]

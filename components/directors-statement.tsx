@@ -15,7 +15,7 @@ export function DirectorsStatement() {
             className="space-y-8"
           >
             <h2 className="font-serif text-3xl md:text-4xl text-white font-light">
-              A Note from the Clinical Director
+              A Note from the Medical Director
             </h2>
             <div className="pl-4 md:pl-8 border-l-2 border-[#D4AF37]/30">
               <p className="font-serif text-lg md:text-xl text-slate-200 leading-relaxed font-light">

@@ -14,7 +14,7 @@ const expertiseAreas = [
   {
     icon: Activity,
     title: "Dentistry",
-    description: "Manual Dexterity & Clinical Interview Prep.",
+    description: "Manual Dexterity & Professional Interview Prep.",
   },
   {
     icon: HeartHandshake,

@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion"
 import Image from "next/image"
-import { useState } from "react"
 
 export function ClinicalBoard() {
   const consultants = [
@@ -12,7 +11,7 @@ export function ClinicalBoard() {
       title: "Dentistry",
       credential: "GDC Registered Dentist",
       graduation: "King's College London with Honours",
-      profile: "Graduated from King's College London with Honours. NHS Dentist with over 12 years of clinical practice and admissions expertise. Specialises in guiding international candidates through the unique requirements of UK dental schools. Expert in interview preparation, having conducted hundreds of mock MMI sessions and panel interviews. Renowned for translating complex clinical experiences into compelling personal statements that resonate with admissions committees.",
+      profile: "Graduated from King's College London with Honours. NHS Dentist with over 12 years of professional practice and admissions expertise. Specialises in guiding international candidates through the unique requirements of UK dental schools. Expert in interview preparation, having conducted hundreds of mock MMI sessions and panel interviews. Renowned for translating complex professional experiences into compelling personal statements that resonate with admissions committees.",
     },
     {
       name: "Dr. Akash Gandhi",
@@ -20,7 +19,7 @@ export function ClinicalBoard() {
       title: "Medicine",
       credential: "GMC Registered Specialist",
       graduation: "Cambridge & UCL - 1st Class and Distinction",
-      profile: "Graduated from Cambridge & UCL with 1st Class and Distinction. NHS Family Medicine Consultant with 12+ years of clinical excellence and admissions mentorship. Extensive experience supporting international candidates from IB, American, and global curricula. Master interviewer with deep expertise in MMI design and medical ethics. Has successfully guided hundreds of candidates to G5 medical schools, with particular strength in strategic university selection and personal statement refinement.",
+      profile: "Graduated from Cambridge & UCL with 1st Class and Distinction. NHS Family Medicine Consultant with 12+ years of professional excellence and admissions mentorship. Extensive experience supporting international candidates from IB, American, and global curricula. Master interviewer with deep expertise in MMI design and medical ethics. Has successfully guided hundreds of candidates to G5 medical schools, with particular strength in strategic university selection and personal statement refinement.",
     },
     {
       name: "Dr. Rebecca Massie",
@@ -28,77 +27,104 @@ export function ClinicalBoard() {
       title: "Veterinary Medicine",
       credential: "RCVS Registered Veterinary Surgeon",
       graduation: "Royal Veterinary College",
-      profile: "Graduated from the Royal Veterinary College. RCVS Registered Veterinary Surgeon with over 12 years of clinical practice and admissions coaching. Expert in veterinary school admissions strategy, having mentored candidates across all UK veterinary programmes. Specialises in helping international students navigate the competitive veterinary admissions landscape. Known for exceptional interview preparation, combining clinical insight with strategic candidacy development to secure placements at top-tier institutions.",
+      profile: "Graduated from the Royal Veterinary College. RCVS Registered Veterinary Surgeon with over 12 years of professional practice and admissions coaching. Expert in veterinary school admissions strategy, having mentored candidates across all UK veterinary programmes. Specialises in helping international students navigate the competitive veterinary admissions landscape. Known for exceptional interview preparation, combining professional insight with strategic candidacy development to secure placements at top-tier institutions.",
     },
   ]
 
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-
   return (
-    <section id="board" className="py-32 bg-slate-950">
-      <div className="container mx-auto px-6">
+    <section id="board" className="py-20 md:py-24 bg-slate-950 overflow-x-hidden">
+      <div className="container mx-auto px-4 sm:px-6 max-w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-20"
+          className="text-center mb-16"
         >
-          <h2 className="font-serif text-4xl md:text-5xl text-white mb-4 font-light">The Board</h2>
+          <h2 className="font-serif text-3xl md:text-4xl text-white mb-3 font-light">
+            The Board
+          </h2>
+          <div className="flex items-center justify-center gap-3">
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-[#D4AF37]/40"></div>
+            <div className="w-1 h-1 rounded-full bg-[#D4AF37]"></div>
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-[#D4AF37]/40"></div>
+          </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
-          {consultants.map((consultant, index) => (
-            <motion.div
-              key={consultant.name}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: index * 0.2 }}
-              className="group relative"
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              {/* Portrait image with hover effect */}
-              <div className="aspect-[3/4] bg-gradient-to-b from-slate-800 to-slate-900 mb-6 relative overflow-hidden rounded-lg shadow-lg shadow-black/40 group-hover:shadow-xl group-hover:shadow-black/60 transition-all duration-500">
-                <Image
-                  src={`/professional-headshot.png?height=600&width=450&query=professional+medical+consultant+portrait`}
-                  alt={consultant.name}
-                  fill
-                  className={`object-cover transition-all duration-700 ${
-                    hoveredIndex === index
-                      ? "grayscale-0 scale-110 brightness-110"
-                      : "grayscale group-hover:grayscale-0"
-                  }`}
-                />
-                {/* Overlay for profile text */}
-                <div
-                  className={`absolute inset-0 bg-black/95 backdrop-blur-md p-3 md:p-4 flex flex-col justify-center overflow-y-auto transition-all duration-500 ${
-                    hoveredIndex === index ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <div className="bg-black/80 backdrop-blur-lg rounded-lg p-4 md:p-5 border-2 border-[#D4AF37]/30 shadow-2xl">
-                    <div className="mb-2 pb-2 border-b border-[#D4AF37]/20">
-                      <p className="text-[#D4AF37] text-sm md:text-base font-serif font-light leading-tight">
-                        {consultant.graduation}
-                      </p>
+        <div className="space-y-12 max-w-6xl mx-auto">
+          {consultants.map((consultant, index) => {
+            const imageOnLeft = index % 2 === 0
+
+            return (
+              <motion.div
+                key={consultant.name}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: index * 0.15 }}
+                className={`flex flex-col md:flex-row items-start md:items-stretch gap-6 md:gap-8 ${
+                  imageOnLeft ? "" : "md:flex-row-reverse"
+                }`}
+              >
+                {/* Portrait image */}
+                <div className="w-full max-w-[200px] mx-auto md:mx-0 md:w-[240px] md:h-full flex-shrink-0">
+                  <div className="group relative h-full">
+                    <div className="relative aspect-[3/4] md:aspect-auto md:h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-lg overflow-hidden shadow-lg shadow-black/50 border border-[#D4AF37]/25 group-hover:border-[#D4AF37]/40 transition-all duration-300">
+                      <Image
+                        src={`/professional-headshot.png?height=600&width=450&query=professional+medical+consultant+portrait`}
+                        alt={consultant.name}
+                        fill
+                        className="object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-500"
+                      />
                     </div>
-                    <p className="text-white text-xs md:text-sm leading-relaxed font-light">
-                      {consultant.profile}
-                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Text content */}
-              <div className="text-center">
-                <h3 className="font-serif text-xl text-white mb-1 font-light">{consultant.name}</h3>
-                <p className="text-[#D4AF37] text-xs mb-1 font-light tracking-wider">{consultant.credentials}</p>
-                <p className="text-slate-300 text-sm mb-2 font-light italic">{consultant.title}</p>
-                <p className="text-amber-400 text-xs uppercase tracking-wider font-light">{consultant.credential}</p>
-              </div>
-            </motion.div>
-          ))}
+                {/* Text content - match image height */}
+                <div className="flex-1 flex flex-col md:h-full w-full">
+                  {/* Name and credentials - clean and compact */}
+                  <div className="text-left mb-3">
+                    <div className="flex flex-wrap items-baseline gap-3 mb-1.5">
+                      <h3 className="font-serif text-xl sm:text-2xl md:text-3xl text-white font-light leading-tight">
+                        {consultant.name}
+                      </h3>
+                      <div className="inline-flex items-center px-2.5 sm:px-3 py-0.5 sm:py-1 bg-[#D4AF37]/10 border border-[#D4AF37]/25 rounded-full">
+                        <p className="text-[#D4AF37] text-[10px] sm:text-xs uppercase tracking-wider font-light">
+                          {consultant.credential}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="h-px w-16 bg-gradient-to-r from-[#D4AF37] to-transparent mb-2"></div>
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <p className="text-[#D4AF37] text-xs sm:text-sm md:text-base font-light tracking-wider uppercase">
+                        {consultant.credentials}
+                      </p>
+                      <span className="text-slate-400">•</span>
+                      <p className="text-slate-200 text-sm sm:text-base md:text-lg font-light italic">
+                        {consultant.title}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Profile card - flex to fill remaining space to match image height */}
+                  <div className="relative bg-black/50 border border-[#D4AF37]/20 rounded-lg p-5 md:p-6 shadow-lg shadow-black/40 flex-1 min-h-0">
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37]/40 to-transparent"></div>
+                    
+                    <div className="space-y-4 pt-1 h-full flex flex-col">
+                      <div className="pb-3 border-b border-[#D4AF37]/15">
+                        <p className="text-[#D4AF37] text-sm md:text-base font-serif font-light leading-snug">
+                          {consultant.graduation}
+                        </p>
+                      </div>
+                      <p className="text-slate-100 text-sm md:text-base leading-relaxed font-light flex-1">
+                        {consultant.profile}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
         </div>
       </div>
     </section>

@@ -243,7 +243,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         <CardHeader className="text-center space-y-4 pb-6">
           <div className="space-y-2">
             <h1 className="text-3xl font-serif text-[#D4AF37] tracking-widest mb-2 font-light">
-              THE REGENT&apos;S CONSULTANCY
+              REGENT&apos;S CONSULTANCY
             </h1>
             <p className="text-sm text-slate-300 font-light">Private Client Portal</p>
           </div>

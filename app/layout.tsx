@@ -19,26 +19,27 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "The Regent's Consultancy | Elite Admissions Strategy for UK Clinical Schools",
+  title: "The Regent's Consultancy | Elite Admissions Strategy for UK Medical Schools",
   description:
     "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors and Dentists and Qualified Veterinary Surgeons.",
   generator: "v0.app",
   icons: {
     icon: [
       {
-        url: "/icon-light-32x32.png",
+        url: "/icon-light-32x32.png?v=2",
         media: "(prefers-color-scheme: light)",
       },
       {
-        url: "/icon-dark-32x32.png",
+        url: "/icon-dark-32x32.png?v=2",
         media: "(prefers-color-scheme: dark)",
       },
       {
-        url: "/icon.svg",
+        url: "/icon.svg?v=2",
         type: "image/svg+xml",
       },
     ],
-    apple: "/apple-icon.png",
+    apple: "/apple-icon.png?v=2",
+    shortcut: "/icon-light-32x32.png?v=2",
   },
 }
 
@@ -48,8 +49,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
-      <body className={`font-sans antialiased`}>
+    <html lang="en" className={`${playfair.variable} ${inter.variable} overflow-x-hidden`}>
+      <body className={`font-sans antialiased overflow-x-hidden`}>
         <AuthProvider>
           {children}
         </AuthProvider>

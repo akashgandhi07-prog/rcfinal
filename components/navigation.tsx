@@ -34,8 +34,11 @@ export function Navigation() {
 
   return (
     <header className="fixed top-0 w-full z-50 bg-[#0B1120]/95 backdrop-blur-md border-b border-white/5">
-      <nav className="container mx-auto px-6 py-6 flex items-center justify-between">
-        <div className="font-serif font-bold text-2xl tracking-widest text-white">THE REGENT&apos;S CONSULTANCY</div>
+      <nav className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between max-w-full gap-2">
+        <div className="font-serif font-bold text-base sm:text-lg md:text-xl lg:text-2xl tracking-widest text-white">
+          <span className="hidden sm:inline">REGENT&apos;S CONSULTANCY</span>
+          <span className="sm:hidden">REGENT&apos;S</span>
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
@@ -62,8 +65,8 @@ export function Navigation() {
         {isMounted ? (
           <Sheet>
             <SheetTrigger asChild className="md:hidden">
-              <Button variant="ghost" size="icon" className="text-white">
-                <Menu className="h-6 w-6" />
+              <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-lg">
+                <Menu className="h-5 w-5" strokeWidth={1.5} />
               </Button>
             </SheetTrigger>
             <SheetContent
@@ -73,7 +76,7 @@ export function Navigation() {
               <div className="flex flex-col gap-8">
                 <div className="pb-2 border-b border-white/10">
                   <div className="text-xs font-light tracking-[0.25em] text-slate-400 uppercase">
-                    The Regent&apos;s Consultancy
+                    Regent&apos;s Consultancy
                   </div>
                 </div>
                 {navLinks.map((link) => (
@@ -97,7 +100,7 @@ export function Navigation() {
           </Sheet>
         ) : (
           <Button variant="ghost" size="icon" className="text-white md:hidden" disabled>
-            <Menu className="h-6 w-6" />
+            <Menu className="h-5 w-5" strokeWidth={1.5} />
           </Button>
         )}
       </nav>

@@ -1,9 +1,9 @@
 export function Footer() {
   return (
-    <footer id="contact" className="border-t border-white/20 bg-slate-950 py-16">
-      <div className="container mx-auto px-6">
+    <footer id="contact" className="border-t border-white/20 bg-slate-950 py-16 overflow-x-hidden">
+      <div className="container mx-auto px-4 sm:px-6 max-w-full">
         <div className="mb-12 text-center overflow-hidden">
-          <h2 className="font-serif text-[15vw] text-white/5 tracking-tight leading-none">REGENT&apos;S</h2>
+          <h2 className="font-serif text-[15vw] sm:text-[12vw] md:text-[10vw] text-white/5 tracking-tight leading-none max-w-full">REGENT&apos;S</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left border-t border-white/10 pt-8">
