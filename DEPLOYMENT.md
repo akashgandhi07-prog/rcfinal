@@ -30,3 +30,4 @@ If your CI/CD platform still tries to use pnpm, you can:
 2. **Set environment variable**: `NPM_CONFIG_USER_AGENT=npm`
 3. **Override build command**: Use `npm install` explicitly
 
+

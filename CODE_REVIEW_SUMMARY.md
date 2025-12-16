@@ -161,3 +161,4 @@ Run `supabase/schema-fixed.sql` to:
 6. Add error boundaries
 7. Performance testing
 
+

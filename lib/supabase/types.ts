@@ -3,6 +3,7 @@
 export type UserRole = 'admin' | 'student' | 'parent'
 export type TargetCourse = 'medicine' | 'dentistry' | 'veterinary'
 export type OnboardingStatus = 'pending' | 'complete'
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
 
 export interface User {
   id: string
@@ -11,6 +12,7 @@ export interface User {
   full_name: string | null
   target_course: TargetCourse | null
   onboarding_status: OnboardingStatus
+  approval_status: ApprovalStatus
   date_of_birth: string | null
   home_address: string | null
   contact_number: string | null
@@ -50,6 +52,7 @@ export interface UserUpdate {
   consultant_assigned?: string | null
   contract_status?: string | null
   client_id?: string | null
+  approval_status?: ApprovalStatus
 }
 
 export interface ParentStudentLink {

@@ -18,6 +18,15 @@ CREATE TYPE target_course AS ENUM ('medicine', 'dentistry', 'veterinary');
 -- Onboarding status
 CREATE TYPE onboarding_status AS ENUM ('pending', 'complete');
 
+-- Account approval status
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'approval_status') THEN
+    CREATE TYPE approval_status AS ENUM ('pending', 'approved', 'rejected');
+  END IF;
+END
+$$;
+
 -- ============================================
 -- USERS TABLE (Profile)
 -- ============================================
@@ -29,6 +38,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   full_name TEXT,
   target_course target_course,
   onboarding_status onboarding_status NOT NULL DEFAULT 'pending',
+  approval_status approval_status NOT NULL DEFAULT 'approved',
   date_of_birth DATE,
   home_address TEXT,
   contact_number TEXT,
@@ -446,4 +456,5 @@ CREATE TRIGGER update_university_strategies_updated_at
   BEFORE UPDATE ON public.university_strategies
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
 

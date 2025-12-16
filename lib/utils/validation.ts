@@ -63,3 +63,4 @@ export function validateSJTBand(band: string | null | undefined): boolean {
   return ["Band 1", "Band 2", "Band 3", "Band 4"].includes(band)
 }
 
+

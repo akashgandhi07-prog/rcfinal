@@ -15,7 +15,7 @@ import { AdminView } from "@/components/portal/admin-view"
 import { SettingsView } from "@/components/portal/settings-view"
 import { supabase } from "@/lib/supabase/client"
 import { getCurrentUser, updateUser, isFeatureEnabled } from "@/lib/supabase/queries"
-import type { User } from "@/lib/supabase/types"
+import type { ApprovalStatus, User } from "@/lib/supabase/types"
 import { FeatureName } from "@/lib/supabase/types"
 import type { OnboardingData } from "@/components/onboarding/onboarding-wizard"
 
@@ -203,7 +203,60 @@ export default function PortalPage() {
     return <LoginScreen onLogin={() => setIsAuthenticated(true)} />
   }
 
-  // Show onboarding if pending
+  const approvalStatus = (user?.approval_status as ApprovalStatus | undefined) || "approved"
+
+  // If account is not yet approved by admin, show holding screen instead of onboarding/dashboard
+  if (approvalStatus === "pending") {
+    return (
+      <div className="min-h-screen bg-[#0B1120] flex items-center justify-center px-6">
+        <div className="max-w-lg text-center space-y-4">
+          <h1 className="text-2xl md:text-3xl font-serif text-[#D4AF37] tracking-wide">
+            Your portal is almost ready
+          </h1>
+          <p className="text-sm md:text-base text-slate-200 font-light">
+            Thank you for registering with The Regent&apos;s Consultancy. A senior consultant will now review your
+            details and activate your private client portal. You&apos;ll receive an email once approval is complete.
+          </p>
+          <p className="text-xs text-slate-400 font-light">
+            If you believe this is taking too long, please contact your Regent&apos;s liaison or email the office and
+            quote the email address you used to register.
+          </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-4 inline-flex items-center justify-center px-4 py-2 text-xs border border-slate-600/60 text-slate-200 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (approvalStatus === "rejected") {
+    return (
+      <div className="min-h-screen bg-[#0B1120] flex items-center justify-center px-6">
+        <div className="max-w-lg text-center space-y-4">
+          <h1 className="text-2xl md:text-3xl font-serif text-red-200 tracking-wide">
+            Access request not approved
+          </h1>
+          <p className="text-sm md:text-base text-slate-200 font-light">
+            Your request for portal access has not been approved at this time. For clarification or to discuss this
+            decision, please contact The Regent&apos;s Consultancy directly.
+          </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-4 inline-flex items-center justify-center px-4 py-2 text-xs border border-slate-600/60 text-slate-200 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            Return to main site
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show onboarding if pending (and account is approved)
   if (user?.onboarding_status === "pending") {
     return <OnboardingWizard onComplete={handleOnboardingComplete} />
   }
