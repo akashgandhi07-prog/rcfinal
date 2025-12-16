@@ -46,7 +46,7 @@ export function PostOfferGuarantee() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-[#D4AF37] text-sm uppercase tracking-[0.2em] text-center mb-8 font-light"
             >
-              The Post-Offer Guarantee
+              Our Post-Offer Guarantee
             </motion.p>
 
             {/* Main text */}
