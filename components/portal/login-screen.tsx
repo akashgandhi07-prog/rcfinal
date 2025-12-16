@@ -23,7 +23,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [signupRole, setSignupRole] = useState<UserRole>("student")
-  const [twoFA, setTwoFA] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -63,13 +62,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (mode !== "login") return
+    const normalizedEmail = email.trim().toLowerCase()
     setIsLoading(true)
     setError(null)
     setSuccessMessage(null)
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       })
 
@@ -101,6 +101,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           const isApproved = userData.approval_status === "approved" || isAdmin
           
           if (!isApproved && !isAdmin) {
+            await supabase.auth.signOut()
             setError("Your account is pending approval. Please contact an administrator.")
             setIsLoading(false)
             return
@@ -114,7 +115,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           onLogin()
         } else {
           router.push("/portal")
-          router.refresh()
         }
       }
     } catch (err) {
@@ -134,7 +134,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!forgotPasswordEmail) {
+    const normalizedEmail = forgotPasswordEmail.trim().toLowerCase()
+
+    if (!normalizedEmail) {
       setError("Please enter your email address")
       return
     }
@@ -148,7 +150,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         ? `${window.location.origin}/portal/reset-password`
         : '/portal/reset-password'
 
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo,
       })
 
@@ -174,7 +176,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setSuccessMessage(null)
 
     try {
-      if (!email || !password || !confirmPassword) {
+      const normalizedEmail = email.trim().toLowerCase()
+
+      if (!normalizedEmail || !password || !confirmPassword) {
         setError("Please complete all required fields.")
         return
       }
@@ -196,7 +200,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         : '/portal'
 
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: {
           emailRedirectTo: redirectTo,
@@ -217,7 +221,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         const { data: insertData, error: insertError } = await supabase.from("users").upsert(
           {
             id: data.user.id,
-            email: data.user.email,
+            email: normalizedEmail,
             role: signupRole,
             onboarding_status: needsOnboarding ? "pending" : "complete",
             approval_status: "pending",
@@ -316,7 +320,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         onLogin()
       } else {
         router.push("/portal")
-        router.refresh()
       }
     } catch (err) {
       console.error("Bypass error:", err)
@@ -328,7 +331,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#0B1120] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#0B1120] flex items-center justify-center px-4 py-6 sm:p-6">
       <Card className="w-full max-w-md bg-white/10 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl border border-slate-700/30">
         <CardHeader className="text-center space-y-4 pb-6">
           <div className="space-y-2">
@@ -392,6 +395,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
@@ -401,59 +405,41 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-200 font-light text-sm">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showLoginPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
-                    placeholder="••••••••"
-                    required
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPassword((prev) => !prev)}
-                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
-                    aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                  >
-                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-slate-200 font-light text-sm">
+                      Password
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPasswordDialog(true)}
+                      className="text-xs text-slate-400 hover:text-[#D4AF37] transition-colors font-light"
+                    >
+                      Forgot?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showLoginPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                      placeholder="••••••••"
+                      required
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                      aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                    >
+                      {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotPasswordDialog(true)
-                      setForgotPasswordEmail(email) // Pre-fill with entered email
-                    }}
-                    className="text-xs text-slate-400 hover:text-[#D4AF37] transition-colors font-light"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="2fa" className="text-slate-200 font-light text-sm">
-                  2FA Code (Optional)
-                </Label>
-                <Input
-                  id="2fa"
-                  type="text"
-                  value={twoFA}
-                  onChange={(e) => setTwoFA(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
-                  placeholder="000000"
-                  maxLength={6}
-                  disabled={isLoading}
-                />
-              </div>
 
               <div className="space-y-3 pt-2">
                 <Button
@@ -483,6 +469,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 <Input
                   id="signup-email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
@@ -501,6 +488,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     <Input
                       id="signup-password"
                       type={showSignupPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    minLength={8}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
@@ -526,6 +515,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     <Input
                       id="signup-confirm-password"
                       type={showSignupConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    minLength={8}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
@@ -578,6 +569,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     <Input
                       id="signup-captcha"
                       type="text"
+                    autoComplete="off"
                       value={captchaAnswer}
                       onChange={(e) => setCaptchaAnswer(e.target.value)}
                       className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-10 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
@@ -641,6 +633,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 <Input
                   id="demo-password"
                   type={showDemoPassword ? "text" : "password"}
+                  autoComplete="off"
                   value={demoPassword}
                   onChange={(e) => {
                     setDemoPassword(e.target.value)
@@ -739,6 +732,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 <Input
                   id="forgot-password-email"
                   type="email"
+                  autoComplete="email"
                   value={forgotPasswordEmail}
                   onChange={(e) => setForgotPasswordEmail(e.target.value)}
                   className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"

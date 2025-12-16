@@ -37,7 +37,7 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
   const [showMentorLinkDialog, setShowMentorLinkDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [activeTab, setActiveTab] = useState<"users" | "relationships">("relationships")
+  const [activeTab, setActiveTab] = useState<"users" | "relationships">("users")
 
   useEffect(() => {
     loadData()
@@ -129,6 +129,8 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
 
   const parents = allUsers.filter(u => u.role === "parent")
   const mentors = allUsers.filter(u => u.role === "mentor")
+  const studentsOnly = allUsers.filter(u => u.role === "student")
+  const admins = allUsers.filter(u => u.role === "admin")
   const pendingApprovals = allUsers.filter((u) => (u.approval_status as ApprovalStatus | undefined) === "pending")
 
   const handleCreateDemoAccount = async (role: UserRole, email: string, name: string, targetCourse?: TargetCourse | null) => {
@@ -196,19 +198,53 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-xl font-light text-slate-900 mb-2">Consultant Access - User Management</h2>
-          <p className="text-sm text-slate-500 font-light">View and manage all users, link parents to students, and edit user data</p>
+          <h2 className="text-xl font-light text-slate-900 mb-1">Admin Dashboard</h2>
+          <p className="text-sm text-slate-500 font-light">Approve accounts, edit roles, and manage parent/mentor links directly.</p>
         </div>
-        <Button
-          onClick={() => setShowCreateDemoDialog(true)}
-          className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light"
-        >
-          <Plus size={16} className="mr-2" />
-          Create Demo Account
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={loadData}
+            className="border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-light"
+          >
+            Refresh
+          </Button>
+          <Button
+            onClick={() => setShowCreateDemoDialog(true)}
+            className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light"
+          >
+            <Plus size={16} className="mr-2" />
+            Create Demo Account
+          </Button>
+        </div>
       </div>
+
+      <Card className="bg-white border-slate-200 rounded-lg">
+        <CardContent className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <p className="text-xs text-slate-500 font-light">Pending approvals</p>
+            <p className="text-2xl font-light text-slate-900">{pendingApprovals.length}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <p className="text-xs text-slate-500 font-light">Students</p>
+            <p className="text-2xl font-light text-slate-900">{studentsOnly.length}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <p className="text-xs text-slate-500 font-light">Mentors</p>
+            <p className="text-2xl font-light text-slate-900">{mentors.length}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <p className="text-xs text-slate-500 font-light">Parents/Guardians</p>
+            <p className="text-2xl font-light text-slate-900">{parents.length}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <p className="text-xs text-slate-500 font-light">Admins</p>
+            <p className="text-2xl font-light text-slate-900">{admins.length}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "users" | "relationships")} className="w-full">
         <TabsList className="bg-slate-100 rounded-lg p-1">

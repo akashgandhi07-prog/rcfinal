@@ -43,6 +43,9 @@ export default function PortalPage() {
     if (user) {
       // Check if user is admin
       setIsAdmin(user.role === "admin")
+      if (user.role === "admin" && activeView !== "admin") {
+        setActiveView("admin")
+      }
 
       // If user is a parent, set viewMode to parent and load linked students
       if (user.role === "parent") {
@@ -100,140 +103,53 @@ export default function PortalPage() {
   }
 
   const checkAuth = async () => {
-    // Always set loading to false at the end, no matter what
     try {
-      console.log("Starting auth check...")
-      
       const {
         data: { session },
         error: sessionError,
       } = await supabase.auth.getSession()
 
-      if (sessionError) {
-        console.error("Session error:", sessionError)
+      if (sessionError || !session) {
         setIsAuthenticated(false)
         setUser(null)
         setIsLoading(false)
         return
       }
 
-      if (!session) {
-        console.log("No session found")
-        setIsAuthenticated(false)
-        setUser(null)
-        setIsLoading(false)
-        return
-      }
-
-      console.log("Session found, fetching user...")
-
-      // Get current user with explicit timeout
-      let currentUser: User | null = null
-      const userFetchPromise = getCurrentUser()
-      const timeoutPromise = new Promise<User | null>((resolve) => 
-        setTimeout(() => {
-          console.warn("getCurrentUser timed out after 3 seconds")
-          resolve(null)
-        }, 3000)
+      // Single user fetch with 3s guard
+      const userFetch = getCurrentUser()
+      const timeout = new Promise<User | null>((resolve) =>
+        setTimeout(() => resolve(null), 3000)
       )
+      const currentUser = await Promise.race([userFetch, timeout])
 
-      try {
-        currentUser = await Promise.race([userFetchPromise, timeoutPromise])
-        console.log("User fetch result:", currentUser ? "Success" : "Failed/Timeout")
-      } catch (userError: any) {
-        console.error("Error fetching user:", userError)
-        // Check if it's an RLS error
-        if (userError?.message?.includes("permission denied") || userError?.code === "42501") {
-          console.error("RLS policy blocking access - run fix-rls-complete.sql")
-        }
-        currentUser = null
+      if (!currentUser) {
+        // If we cannot load profile quickly, fall back to login
+        await supabase.auth.signOut()
+        setIsAuthenticated(false)
+        setUser(null)
+        setIsLoading(false)
+        return
       }
 
-      if (currentUser) {
-        console.log("User found:", currentUser.email, "Role:", currentUser.role)
-        // Admins can always access, others need approval
-        const isAdmin = currentUser.role === "admin"
-        const isApproved = currentUser.approval_status === "approved" || isAdmin
-        
-        if (isApproved || isAdmin) {
-          console.log("User approved, setting authenticated")
-          setIsAuthenticated(true)
-          setUser(currentUser)
-        } else {
-          console.log("User not approved, logging out")
-          // User not approved, log them out
-          await supabase.auth.signOut()
-          setIsAuthenticated(false)
-          setUser(null)
-        }
-      } else {
-        console.log("User not found in database, attempting to create...")
-        // User exists in auth but not in users table, or query failed
-        try {
-          const { data: authUser, error: authUserError } = await supabase.auth.getUser()
-          if (authUserError) {
-            console.error("Error getting auth user:", authUserError)
-            setIsAuthenticated(false)
-            setUser(null)
-            setIsLoading(false)
-            return
-          }
+      const isAdmin = currentUser.role === "admin"
+      const isApproved = currentUser.approval_status === "approved" || isAdmin
 
-          if (authUser.user) {
-            console.log("Creating user record for:", authUser.user.email)
-            const { error: insertError } = await supabase.from("users").upsert({
-              id: authUser.user.id,
-              email: authUser.user.email,
-              role: "student",
-              onboarding_status: "pending",
-              approval_status: "pending",
-            }, {
-              onConflict: "id",
-            })
-
-            if (!insertError) {
-              console.log("User record created, fetching again...")
-              // Try to get user again with timeout
-              const newUserPromise = getCurrentUser()
-              const newUserTimeout = new Promise<User | null>((resolve) => 
-                setTimeout(() => resolve(null), 2000)
-              )
-              
-              const newUser = await Promise.race([newUserPromise, newUserTimeout])
-              
-              if (newUser) {
-                console.log("User fetched after creation")
-                // New users need approval, so log them out
-                await supabase.auth.signOut()
-                setIsAuthenticated(false)
-                setUser(null)
-              } else {
-                console.error("Cannot fetch user after insert - RLS policy issue")
-                setIsAuthenticated(false)
-                setUser(null)
-              }
-            } else {
-              console.error("Error creating user record:", insertError)
-              setIsAuthenticated(false)
-              setUser(null)
-            }
-          } else {
-            console.log("No auth user found")
-            setIsAuthenticated(false)
-            setUser(null)
-          }
-        } catch (insertError) {
-          console.error("Error in user creation flow:", insertError)
-          setIsAuthenticated(false)
-          setUser(null)
-        }
+      if (!isApproved) {
+        await supabase.auth.signOut()
+        setIsAuthenticated(false)
+        setUser(null)
+        setIsLoading(false)
+        return
       }
+
+      setIsAuthenticated(true)
+      setUser(currentUser)
     } catch (error) {
-      console.error("Unexpected error in checkAuth:", error)
+      console.error("Auth check error:", error)
       setIsAuthenticated(false)
       setUser(null)
     } finally {
-      console.log("Auth check complete, setting loading to false")
       setIsLoading(false)
     }
   }

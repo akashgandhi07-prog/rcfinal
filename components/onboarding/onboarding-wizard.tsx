@@ -390,7 +390,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <div className="pt-6 border-t border-slate-200">
                     <h3 className="text-lg font-serif text-slate-900 mb-6 font-light">Parent/Guardian 1</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-5">
                       <div>
                         <Label htmlFor="parent_name" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
                           Name *
@@ -413,6 +413,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                             id="parent_phone"
                             value={formData.parent_phone}
                             onChange={(val) => updateField("parent_phone", val)}
+                            className="w-full"
                             required
                           />
                         </div>
@@ -437,7 +438,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <div className="pt-6 border-t border-slate-200">
                     <h3 className="text-lg font-serif text-slate-900 mb-6 font-light">Parent/Guardian 2 (Optional)</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-5">
                       <div>
                         <Label htmlFor="parent2_name" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
                           Name
@@ -459,6 +460,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           id="parent2_phone"
                           value={formData.parent2_phone}
                           onChange={(val) => updateField("parent2_phone", val)}
+                          className="w-full"
                         />
                       </div>
 
@@ -733,7 +735,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               variant="outline"
               onClick={handleBack}
               disabled={currentStep === 1}
-              className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-none uppercase tracking-widest font-light disabled:opacity-30 disabled:cursor-not-allowed px-6"
+              className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-lg uppercase tracking-widest font-light disabled:opacity-30 disabled:cursor-not-allowed px-6"
             >
               <ArrowLeft size={16} className="mr-2" />
               Back
@@ -749,7 +751,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   }
                   handleNext()
                 }}
-                className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-none uppercase tracking-widest font-light disabled:opacity-50 disabled:cursor-not-allowed px-8"
+                className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg uppercase tracking-widest font-light disabled:opacity-50 disabled:cursor-not-allowed px-8"
               >
                 Next Step
                 <ArrowRight size={16} className="ml-2" />
@@ -765,7 +767,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   handleSubmit()
                 }}
                 disabled={isSubmitting}
-                className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-none uppercase tracking-widest font-light disabled:opacity-50 disabled:cursor-not-allowed px-8"
+                className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg uppercase tracking-widest font-light disabled:opacity-50 disabled:cursor-not-allowed px-8"
               >
                 {isSubmitting ? "Saving..." : "Complete Registration"}
                 <CheckCircle2 size={16} className="ml-2" />

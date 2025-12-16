@@ -278,7 +278,7 @@ export function PhoneInput({
     <div className={cn("flex gap-2", className)}>
       <div className="flex-shrink-0">
         <select
-          className="h-11 rounded-lg border border-slate-300 bg-white px-2 pr-8 text-sm text-slate-900 shadow-sm focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 min-w-[180px]"
+          className="h-11 rounded-lg border border-slate-300 bg-white px-2 pr-7 text-sm text-slate-900 shadow-sm focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 min-w-[140px]"
           value={countryCode}
           onChange={handleCountryChange}
           disabled={disabled}
