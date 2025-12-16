@@ -6,9 +6,20 @@ import { Button } from "@/components/ui/button"
 import { MatteInput } from "@/components/ui/matte-input"
 import { MatteTextarea } from "@/components/ui/matte-textarea"
 import { Label } from "@/components/ui/label"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react"
+import { CheckCircle2, ArrowRight, ArrowLeft, Plus, Trash2 } from "lucide-react"
 import type { TargetCourse } from "@/lib/supabase/types"
+
+export interface GCSEGrade {
+  subject: string
+  grade: string
+}
+
+export interface ALevelGrade {
+  subject: string
+  grade: string
+}
 
 export interface OnboardingData {
   // Step 1: Personal Details
@@ -16,6 +27,9 @@ export interface OnboardingData {
   date_of_birth: string
   home_address: string
   contact_number: string
+  country: string
+  fee_status: "home" | "international" | "unsure"
+  entry_year: number
   parent_name: string
   parent_phone: string
   parent_email: string
@@ -25,8 +39,8 @@ export interface OnboardingData {
 
   // Step 2: Academic Baseline
   school_name: string
-  gcse_summary: string
-  a_level_predictions: string
+  gcse_grades: GCSEGrade[]
+  a_level_grades: ALevelGrade[]
 
   // Step 3: Course Selection
   target_course: TargetCourse | null
@@ -39,11 +53,16 @@ interface OnboardingWizardProps {
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [showValidationErrors, setShowValidationErrors] = useState(false)
   const [formData, setFormData] = useState<OnboardingData>({
     full_name: "",
     date_of_birth: "",
     home_address: "",
     contact_number: "",
+    country: "",
+    fee_status: "unsure",
+    entry_year: new Date().getFullYear() + 1,
     parent_name: "",
     parent_phone: "",
     parent_email: "",
@@ -51,13 +70,54 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     parent2_phone: "",
     parent2_email: "",
     school_name: "",
-    gcse_summary: "",
-    a_level_predictions: "",
+    gcse_grades: [
+      { subject: "English Language", grade: "" },
+      { subject: "English Literature", grade: "" },
+      { subject: "Maths", grade: "" },
+    ],
+    a_level_grades: [
+      { subject: "", grade: "" },
+      { subject: "", grade: "" },
+      { subject: "", grade: "" },
+    ],
     target_course: null,
   })
 
-  const updateField = (field: keyof OnboardingData, value: string | TargetCourse | null) => {
+  const fieldNameMap: Record<string, string> = {
+    full_name: "Full Name",
+    date_of_birth: "Date of Birth",
+    home_address: "Home Address",
+    contact_number: "Contact Number",
+    country: "Country of Residence",
+    fee_status: "Fee Status",
+    entry_year: "Entry Year",
+    parent_name: "Parent/Guardian 1 Name",
+    parent_phone: "Parent/Guardian 1 Phone",
+    parent_email: "Parent/Guardian 1 Email",
+    school_name: "School/Institution Name",
+    gcse_grades: "GCSE Grades",
+    a_level_grades: "A Level (or equivalent) Grades",
+    target_course: "Target Course",
+  }
+
+  const isFieldMissing = (field: keyof OnboardingData): boolean => {
+    if (!showValidationErrors) return false
+    const fieldName = fieldNameMap[field]
+    return fieldName ? validationErrors.includes(fieldName) : false
+  }
+
+  const updateField = (field: keyof OnboardingData, value: string | TargetCourse | number | "home" | "international" | "unsure" | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    // Clear validation errors for this field when user starts typing
+    if (showValidationErrors && validationErrors.length > 0) {
+      const fieldName = fieldNameMap[field]
+      if (fieldName && validationErrors.includes(fieldName)) {
+        setValidationErrors(validationErrors.filter(e => e !== fieldName))
+        if (validationErrors.length === 1) {
+          setShowValidationErrors(false)
+        }
+      }
+    }
   }
 
   const handleNext = () => {
@@ -70,25 +130,51 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setCurrentStep((prev) => Math.max(prev - 1, 1))
   }
 
-  const validateStep = (step: number): boolean => {
+  const getMissingFields = (step: number): string[] => {
+    const missing: string[] = []
     switch (step) {
       case 1:
-        return !!(
-          formData.full_name &&
-          formData.date_of_birth &&
-          formData.home_address &&
-          formData.contact_number &&
-          formData.parent_name &&
-          formData.parent_phone &&
-          formData.parent_email
-        )
+        if (!formData.full_name) missing.push("Full Name")
+        if (!formData.date_of_birth) missing.push("Date of Birth")
+        if (!formData.home_address) missing.push("Home Address")
+        if (!formData.contact_number) missing.push("Contact Number")
+        if (!formData.country) missing.push("Country of Residence")
+        if (!formData.fee_status) missing.push("Fee Status")
+        if (!formData.entry_year) missing.push("Entry Year")
+        if (!formData.parent_name) missing.push("Parent/Guardian 1 Name")
+        if (!formData.parent_phone) missing.push("Parent/Guardian 1 Phone")
+        if (!formData.parent_email) missing.push("Parent/Guardian 1 Email")
+        break
       case 2:
-        return !!(formData.school_name && formData.gcse_summary && formData.a_level_predictions)
+        if (!formData.school_name) missing.push("School/Institution Name")
+        if (!formData.gcse_grades || formData.gcse_grades.length === 0 || formData.gcse_grades.some(g => !g.subject || !g.grade)) {
+          missing.push("GCSE Grades")
+        }
+        if (!formData.a_level_grades || formData.a_level_grades.length === 0 || formData.a_level_grades.some(g => !g.subject || !g.grade)) {
+          missing.push("A Level (or equivalent) Grades")
+        }
+        break
       case 3:
-        return !!formData.target_course
-      default:
-        return false
+        if (!formData.target_course) missing.push("Target Course")
+        break
     }
+    return missing
+  }
+
+  const validateStep = (step: number): boolean => {
+    const missing = getMissingFields(step)
+    if (missing.length > 0) {
+      setValidationErrors(missing)
+      setShowValidationErrors(true)
+      // Scroll to top to show error message
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      // Hide error after 5 seconds
+      setTimeout(() => setShowValidationErrors(false), 5000)
+      return false
+    }
+    setValidationErrors([])
+    setShowValidationErrors(false)
+    return true
   }
 
   const handleSubmit = async () => {
@@ -112,6 +198,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
       <div className="w-full max-w-3xl">
+        {/* Onboarding Title */}
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-serif text-slate-900 mb-2 font-light">Onboarding</h1>
+          <p className="text-sm text-slate-600 font-light">Complete your profile to get started</p>
+        </div>
+        
         {/* Progress Indicator */}
         <div className="mb-12">
           <div className="flex items-center justify-between mb-6">
@@ -156,6 +248,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
         {/* Form Content */}
         <div className="bg-white border border-slate-200 p-10 min-h-[600px]">
+          {/* Validation Error Message */}
+          {showValidationErrors && validationErrors.length > 0 && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm font-medium text-red-900 mb-2">
+                Please complete the following required fields:
+              </p>
+              <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                {validationErrors.map((field, index) => (
+                  <li key={index}>{field}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
           <AnimatePresence mode="wait">
             {/* Step 1: Personal Details */}
             {currentStep === 1 && (
@@ -183,8 +289,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         id="full_name"
                         value={formData.full_name}
                         onChange={(e) => updateField("full_name", e.target.value)}
-                        className="text-sm w-full"
-                        placeholder="Ella Lewis"
+                        className={`text-sm w-full ${isFieldMissing("full_name") ? 'border-red-300 focus:border-red-500' : ''}`}
+                        placeholder="Enter your full name"
                       />
                     </div>
 
@@ -197,7 +303,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         type="date"
                         value={formData.date_of_birth}
                         onChange={(e) => updateField("date_of_birth", e.target.value)}
-                        className="text-sm w-full"
+                        className={`text-sm w-full ${isFieldMissing("date_of_birth") ? 'border-red-300 focus:border-red-500' : ''}`}
                       />
                     </div>
                   </div>
@@ -206,13 +312,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     <Label htmlFor="contact_number" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
                       Contact Number *
                     </Label>
-                    <MatteInput
-                      id="contact_number"
-                      value={formData.contact_number}
-                      onChange={(e) => updateField("contact_number", e.target.value)}
-                      className="text-sm w-full"
-                      placeholder="+44 7700 900123"
-                    />
+                    <div className={isFieldMissing("contact_number") ? 'border-b border-red-300 pb-2' : ''}>
+                      <PhoneInput
+                        id="contact_number"
+                        value={formData.contact_number}
+                        onChange={(val) => updateField("contact_number", val)}
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -224,9 +331,60 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       value={formData.home_address}
                       onChange={(e) => updateField("home_address", e.target.value)}
                       rows={3}
-                      className="text-sm w-full"
+                      className={`text-sm w-full ${isFieldMissing("home_address") ? 'border-red-300 focus:border-red-500' : ''}`}
                       placeholder="24 Kensington Gardens, London, W8 4RT"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <Label htmlFor="country" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
+                        Country of Residence *
+                      </Label>
+                      <MatteInput
+                        id="country"
+                        value={formData.country}
+                        onChange={(e) => updateField("country", e.target.value)}
+                        className={`text-sm w-full ${isFieldMissing("country") ? 'border-red-300 focus:border-red-500' : ''}`}
+                        placeholder="United Kingdom"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="fee_status" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
+                        Fee Status *
+                      </Label>
+                      <Select
+                        value={formData.fee_status}
+                        onValueChange={(value) => updateField("fee_status", value as "home" | "international" | "unsure")}
+                      >
+                        <SelectTrigger className={`w-full border-0 border-b rounded-none px-0 py-2 focus:ring-0 bg-transparent font-light text-slate-900 h-auto text-sm data-[placeholder]:text-slate-400 ${isFieldMissing("fee_status") ? 'border-red-300 focus:border-red-500' : 'border-slate-300 focus:border-[#D4AF37]'}`}>
+                          <SelectValue placeholder="Select fee status" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border border-slate-200 rounded-none">
+                          <SelectItem value="home">Home</SelectItem>
+                          <SelectItem value="international">International</SelectItem>
+                          <SelectItem value="unsure">Unsure</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="entry_year" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
+                        Entry Year *
+                      </Label>
+                      <MatteInput
+                        id="entry_year"
+                        type="number"
+                        value={formData.entry_year}
+                        onChange={(e) => updateField("entry_year", parseInt(e.target.value) || new Date().getFullYear() + 1)}
+                        className={`text-sm w-full ${isFieldMissing("entry_year") ? 'border-red-300 focus:border-red-500' : ''}`}
+                        min={new Date().getFullYear()}
+                        max={new Date().getFullYear() + 5}
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div className="pt-6 border-t border-slate-200">
@@ -235,40 +393,41 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <Label htmlFor="parent_name" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                          Parent Name *
+                          Name *
                         </Label>
                         <MatteInput
                           id="parent_name"
                           value={formData.parent_name}
                           onChange={(e) => updateField("parent_name", e.target.value)}
-                          className="text-sm w-full"
-                          placeholder="Sarah Lewis"
+                          className={`text-sm w-full ${isFieldMissing("parent_name") ? 'border-red-300 focus:border-red-500' : ''}`}
+                          placeholder="Enter parent/guardian name"
                         />
                       </div>
 
                       <div>
                         <Label htmlFor="parent_phone" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                          Parent Phone *
+                          Phone *
                         </Label>
-                        <MatteInput
-                          id="parent_phone"
-                          value={formData.parent_phone}
-                          onChange={(e) => updateField("parent_phone", e.target.value)}
-                          className="text-sm w-full"
-                          placeholder="+44 7700 900456"
-                        />
+                        <div className={isFieldMissing("parent_phone") ? 'border-b border-red-300 pb-2' : ''}>
+                          <PhoneInput
+                            id="parent_phone"
+                            value={formData.parent_phone}
+                            onChange={(val) => updateField("parent_phone", val)}
+                            required
+                          />
+                        </div>
                       </div>
 
                       <div>
                         <Label htmlFor="parent_email" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                          Parent Email *
+                          Email *
                         </Label>
                         <MatteInput
                           id="parent_email"
                           type="email"
                           value={formData.parent_email}
                           onChange={(e) => updateField("parent_email", e.target.value)}
-                          className="text-sm w-full"
+                          className={`text-sm w-full ${isFieldMissing("parent_email") ? 'border-red-300 focus:border-red-500' : ''}`}
                           placeholder="parent@example.com"
                         />
                       </div>
@@ -281,33 +440,31 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <Label htmlFor="parent2_name" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                          Parent Name
+                          Name
                         </Label>
                         <MatteInput
                           id="parent2_name"
                           value={formData.parent2_name}
                           onChange={(e) => updateField("parent2_name", e.target.value)}
                           className="text-sm w-full"
-                          placeholder="John Lewis"
+                          placeholder="Enter parent/guardian name"
                         />
                       </div>
 
                       <div>
                         <Label htmlFor="parent2_phone" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                          Parent Phone
+                          Phone
                         </Label>
-                        <MatteInput
+                        <PhoneInput
                           id="parent2_phone"
                           value={formData.parent2_phone}
-                          onChange={(e) => updateField("parent2_phone", e.target.value)}
-                          className="text-sm w-full"
-                          placeholder="+44 7700 900789"
+                          onChange={(val) => updateField("parent2_phone", val)}
                         />
                       </div>
 
                       <div>
                         <Label htmlFor="parent2_email" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                          Parent Email
+                          Email
                         </Label>
                         <MatteInput
                           id="parent2_email"
@@ -347,36 +504,182 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       id="school_name"
                       value={formData.school_name}
                       onChange={(e) => updateField("school_name", e.target.value)}
-                      className="text-sm w-full"
+                      className={`text-sm w-full ${isFieldMissing("school_name") ? 'border-red-300 focus:border-red-500' : ''}`}
                       placeholder="Westminster Academy"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="gcse_summary" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                      GCSE Summary *
+                    <Label className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
+                      GCSE Grades *
                     </Label>
-                    <MatteTextarea
-                      id="gcse_summary"
-                      value={formData.gcse_summary}
-                      onChange={(e) => updateField("gcse_summary", e.target.value)}
-                      rows={3}
-                      className="text-sm w-full"
-                      placeholder="9 GCSEs - Grade 9-7 (including Maths, English, Sciences)"
-                    />
+                    <div className="space-y-3">
+                      {/* Column Headers */}
+                      <div className="grid grid-cols-[1fr_120px_40px] gap-3 pb-2 border-b border-slate-200">
+                        <p className="text-xs text-slate-500 uppercase tracking-widest font-light">Subject</p>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest font-light">Grade</p>
+                        <div></div>
+                      </div>
+                      
+                      {formData.gcse_grades.map((gcse, index) => (
+                        <div key={index} className="grid grid-cols-[1fr_120px_40px] gap-3 items-center">
+                          <div>
+                            <MatteInput
+                              value={gcse.subject}
+                              onChange={(e) => {
+                                const updated = [...formData.gcse_grades]
+                                updated[index] = { ...updated[index], subject: e.target.value }
+                                setFormData({ ...formData, gcse_grades: updated })
+                                if (showValidationErrors && validationErrors.includes("GCSE Grades")) {
+                                  const allFilled = updated.every(g => g.subject && g.grade)
+                                  if (allFilled) {
+                                    setValidationErrors(validationErrors.filter(e => e !== "GCSE Grades"))
+                                  }
+                                }
+                              }}
+                              className={`text-sm w-full ${isFieldMissing("gcse_grades") && (!gcse.subject || !gcse.grade) ? 'border-red-300 focus:border-red-500' : ''} ${index < 3 ? 'bg-slate-50' : ''}`}
+                              placeholder="Subject"
+                              disabled={index < 3} // Disable editing subject names for the 3 default subjects
+                            />
+                          </div>
+                          <div>
+                            <MatteInput
+                              value={gcse.grade}
+                              onChange={(e) => {
+                                const updated = [...formData.gcse_grades]
+                                updated[index] = { ...updated[index], grade: e.target.value }
+                                setFormData({ ...formData, gcse_grades: updated })
+                                if (showValidationErrors && validationErrors.includes("GCSE Grades")) {
+                                  const allFilled = updated.every(g => g.subject && g.grade)
+                                  if (allFilled) {
+                                    setValidationErrors(validationErrors.filter(e => e !== "GCSE Grades"))
+                                  }
+                                }
+                              }}
+                              className={`text-sm w-full ${isFieldMissing("gcse_grades") && (!gcse.subject || !gcse.grade) ? 'border-red-300 focus:border-red-500' : ''}`}
+                              placeholder="Grade"
+                            />
+                          </div>
+                          <div className="flex justify-center">
+                            {index >= 3 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const updated = formData.gcse_grades.filter((_, i) => i !== index)
+                                  setFormData({ ...formData, gcse_grades: updated })
+                                }}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-9 w-9 p-0"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            gcse_grades: [...formData.gcse_grades, { subject: "", grade: "" }]
+                          })
+                        }}
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50 rounded-none text-xs font-light mt-2"
+                      >
+                        <Plus size={14} className="mr-1" />
+                        Add Subject
+                      </Button>
+                    </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="a_level_predictions" className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
-                      A-Level Predictions *
+                    <Label className="text-xs text-slate-500 uppercase tracking-widest font-light mb-2 block">
+                      A Level (or equivalent) Grades *
                     </Label>
-                    <MatteInput
-                      id="a_level_predictions"
-                      value={formData.a_level_predictions}
-                      onChange={(e) => updateField("a_level_predictions", e.target.value)}
-                      className="text-sm w-full"
-                      placeholder="A*A*A (Biology, Chemistry, Mathematics)"
-                    />
+                    <div className="space-y-3">
+                      {/* Column Headers */}
+                      <div className="grid grid-cols-[1fr_120px_40px] gap-3 pb-2 border-b border-slate-200">
+                        <p className="text-xs text-slate-500 uppercase tracking-widest font-light">Subject</p>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest font-light">Grade</p>
+                        <div></div>
+                      </div>
+                      
+                      {formData.a_level_grades.map((alevel, index) => (
+                        <div key={index} className="grid grid-cols-[1fr_120px_40px] gap-3 items-center">
+                          <div>
+                            <MatteInput
+                              value={alevel.subject}
+                              onChange={(e) => {
+                                const updated = [...formData.a_level_grades]
+                                updated[index] = { ...updated[index], subject: e.target.value }
+                                setFormData({ ...formData, a_level_grades: updated })
+                                if (showValidationErrors && validationErrors.includes("A Level (or equivalent) Grades")) {
+                                  const allFilled = updated.every(g => g.subject && g.grade)
+                                  if (allFilled) {
+                                    setValidationErrors(validationErrors.filter(e => e !== "A Level (or equivalent) Grades"))
+                                  }
+                                }
+                              }}
+                              className={`text-sm w-full ${isFieldMissing("a_level_grades") && (!alevel.subject || !alevel.grade) ? 'border-red-300 focus:border-red-500' : ''}`}
+                              placeholder="Subject"
+                            />
+                          </div>
+                          <div>
+                            <MatteInput
+                              value={alevel.grade}
+                              onChange={(e) => {
+                                const updated = [...formData.a_level_grades]
+                                updated[index] = { ...updated[index], grade: e.target.value }
+                                setFormData({ ...formData, a_level_grades: updated })
+                                if (showValidationErrors && validationErrors.includes("A Level (or equivalent) Grades")) {
+                                  const allFilled = updated.every(g => g.subject && g.grade)
+                                  if (allFilled) {
+                                    setValidationErrors(validationErrors.filter(e => e !== "A Level (or equivalent) Grades"))
+                                  }
+                                }
+                              }}
+                              className={`text-sm w-full ${isFieldMissing("a_level_grades") && (!alevel.subject || !alevel.grade) ? 'border-red-300 focus:border-red-500' : ''}`}
+                              placeholder="Grade"
+                            />
+                          </div>
+                          <div className="flex justify-center">
+                            {formData.a_level_grades.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const updated = formData.a_level_grades.filter((_, i) => i !== index)
+                                  setFormData({ ...formData, a_level_grades: updated })
+                                }}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-9 w-9 p-0"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            a_level_grades: [...formData.a_level_grades, { subject: "", grade: "" }]
+                          })
+                        }}
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50 rounded-none text-xs font-light mt-2"
+                      >
+                        <Plus size={14} className="mr-1" />
+                        Add Subject
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -407,7 +710,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       value={formData.target_course || ""}
                       onValueChange={(value) => updateField("target_course", value as TargetCourse)}
                     >
-                      <SelectTrigger className="border-0 border-b border-slate-300 rounded-none px-0 py-3 focus:border-[#D4AF37] focus:ring-0 bg-transparent font-light text-slate-900 h-auto">
+                      <SelectTrigger className={`border-0 border-b rounded-none px-0 py-3 focus:ring-0 bg-transparent font-light text-slate-900 h-auto ${isFieldMissing("target_course") ? 'border-red-300 focus:border-red-500' : 'border-slate-300 focus:border-[#D4AF37]'}`}>
                         <SelectValue placeholder="Select your target course" />
                       </SelectTrigger>
                       <SelectContent className="bg-white border border-slate-200 rounded-none">
@@ -418,25 +721,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     </Select>
                   </div>
 
-                  {formData.target_course && (
-                    <div className="p-6 bg-[#D4AF37]/5 border border-[#D4AF37]/30">
-                      <p className="text-sm text-slate-800 font-light leading-relaxed">
-                        {formData.target_course === "veterinary" && (
-                          <>
-                            <strong className="font-medium">Veterinary course selected.</strong> Your dashboard will be customized for
-                            veterinary medicine applications. UCAT Performance tracking will not be available as veterinary schools use
-                            different assessment methods.
-                          </>
-                        )}
-                        {formData.target_course !== "veterinary" && (
-                          <>
-                            <strong className="font-medium">Medicine/Dentistry course selected.</strong> Your dashboard will include UCAT
-                            and BMAT performance tracking, interview preparation resources, and medical school-specific guidance.
-                          </>
-                        )}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </motion.div>
             )}
@@ -458,8 +742,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             {currentStep < 3 ? (
               <Button
                 type="button"
-                onClick={handleNext}
-                disabled={!validateStep(currentStep)}
+                onClick={() => {
+                  if (!validateStep(currentStep)) {
+                    // Validation error already shown by validateStep
+                    return
+                  }
+                  handleNext()
+                }}
                 className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-none uppercase tracking-widest font-light disabled:opacity-50 disabled:cursor-not-allowed px-8"
               >
                 Next Step
@@ -468,8 +757,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             ) : (
               <Button
                 type="button"
-                onClick={handleSubmit}
-                disabled={!validateStep(3) || isSubmitting}
+                onClick={() => {
+                  if (!validateStep(3)) {
+                    // Validation error already shown by validateStep
+                    return
+                  }
+                  handleSubmit()
+                }}
+                disabled={isSubmitting}
                 className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-none uppercase tracking-widest font-light disabled:opacity-50 disabled:cursor-not-allowed px-8"
               >
                 {isSubmitting ? "Saving..." : "Complete Registration"}

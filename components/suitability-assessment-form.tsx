@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -197,19 +198,17 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phoneNumber" className="text-sm text-slate-700 font-light">
-                  Phone Number <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="phoneNumber"
-                  type="tel"
-                  value={formData.phoneNumber}
-                  onChange={(e) => updateField("phoneNumber", e.target.value)}
-                  className="border-slate-300 text-slate-900 rounded-lg h-12 text-base px-4 w-full"
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber" className="text-sm text-slate-700 font-light">
+                Phone Number <span className="text-red-500">*</span>
+              </Label>
+              <PhoneInput
+                id="phoneNumber"
+                value={formData.phoneNumber}
+                onChange={(val) => updateField("phoneNumber", val)}
+                required
+              />
+            </div>
             </div>
 
             <div className="space-y-2">

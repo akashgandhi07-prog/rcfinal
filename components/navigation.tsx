@@ -34,10 +34,10 @@ export function Navigation() {
 
   return (
     <header className="fixed top-0 w-full z-50 bg-[#0B1120]/95 backdrop-blur-md border-b border-white/5">
-      <nav className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between max-w-full gap-2">
-        <div className="font-serif font-bold text-base sm:text-lg md:text-xl lg:text-2xl tracking-widest text-white">
+      <nav className="container mx-auto px-4 sm:px-6 py-6 sm:py-6 flex items-center justify-between max-w-full gap-2">
+        <div className="font-serif font-bold text-sm sm:text-lg md:text-xl lg:text-2xl tracking-widest text-white">
           <span className="hidden sm:inline">REGENT&apos;S CONSULTANCY</span>
-          <span className="sm:hidden">REGENT&apos;S</span>
+          <span className="sm:hidden">REGENT&apos;S CONSULTANCY</span>
         </div>
 
         {/* Desktop Navigation */}

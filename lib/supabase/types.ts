@@ -1,9 +1,10 @@
 // Database Types for Regent's Private Client Portal
 
-export type UserRole = 'admin' | 'student' | 'parent'
+export type UserRole = 'admin' | 'student' | 'parent' | 'mentor'
 export type TargetCourse = 'medicine' | 'dentistry' | 'veterinary'
 export type OnboardingStatus = 'pending' | 'complete'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
+export type FeeStatus = 'home' | 'international' | 'unsure'
 
 export interface User {
   id: string
@@ -11,6 +12,9 @@ export interface User {
   role: UserRole
   full_name: string | null
   target_course: TargetCourse | null
+  entry_year: number | null
+  country: string | null
+  fee_status: FeeStatus | null
   onboarding_status: OnboardingStatus
   approval_status: ApprovalStatus
   date_of_birth: string | null
@@ -48,6 +52,9 @@ export interface UserUpdate {
   gcse_summary?: string | null
   a_level_predictions?: string | null
   target_course?: TargetCourse | null
+  entry_year?: number | null
+  country?: string | null
+  fee_status?: FeeStatus | null
   onboarding_status?: OnboardingStatus
   consultant_assigned?: string | null
   contract_status?: string | null
@@ -61,6 +68,28 @@ export interface ParentStudentLink {
   student_id: string
   created_at: string
 }
+
+export interface MentorStudentLink {
+  id: string
+  mentor_id: string
+  student_id: string
+  created_at: string
+}
+
+export interface MentorComment {
+  id: string
+  mentor_id: string
+  student_id: string
+  section: string // 'dashboard', 'profile', 'portfolio', 'ucat', 'strategy', 'interview', 'work_experience', 'volunteering', 'supracurricular'
+  section_item_id: string | null
+  comment_text: string
+  comment_type: 'feedback' | 'plan' | 'suggestion'
+  created_at: string
+  updated_at: string
+}
+
+export type CommentType = 'feedback' | 'plan' | 'suggestion'
+export type CommentSection = 'dashboard' | 'profile' | 'portfolio' | 'ucat' | 'strategy' | 'interview' | 'work_experience' | 'volunteering' | 'supracurricular'
 
 export interface FeatureToggle {
   id: string

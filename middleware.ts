@@ -51,8 +51,12 @@ export async function middleware(request: NextRequest) {
       // Continue even if auth check fails
     }
 
-    // Protect portal routes (but allow /portal itself for login)
-    if (request.nextUrl.pathname.startsWith("/portal") && request.nextUrl.pathname !== "/portal") {
+    // Protect portal routes (but allow /portal itself for login and reset-password)
+    const isPublicRoute = 
+      request.nextUrl.pathname === "/portal" || 
+      request.nextUrl.pathname === "/portal/reset-password"
+    
+    if (request.nextUrl.pathname.startsWith("/portal") && !isPublicRoute) {
       try {
         const {
           data: { user },

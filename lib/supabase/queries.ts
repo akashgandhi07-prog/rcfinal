@@ -1,5 +1,5 @@
 import { supabase } from './client'
-import type { User, UCATMock, FeatureToggle, ParentStudentLink, PortfolioActivity, UniversityStrategy, UserUpdate } from './types'
+import type { User, UCATMock, FeatureToggle, ParentStudentLink, MentorStudentLink, MentorComment, PortfolioActivity, UniversityStrategy, UserUpdate } from './types'
 import { FeatureName } from './types'
 import { logger } from '@/lib/utils/logger'
 
@@ -150,6 +150,87 @@ export async function getAllUsers(): Promise<User[]> {
     return (data || []) as User[]
   } catch (error) {
     logger.error('Error in getAllUsers', error)
+    return []
+  }
+}
+
+// ============================================
+// ADMIN RELATIONSHIP QUERIES
+// ============================================
+
+export interface UserRelationship {
+  student: User
+  parents: User[]
+  mentors: User[]
+}
+
+export async function getAllUserRelationships(): Promise<UserRelationship[]> {
+  try {
+    // Get all students
+    const students = await getAllStudents()
+    
+    // Get all parent-student links
+    const { data: parentLinks, error: parentLinksError } = await supabase
+      .from('parent_student_links')
+      .select('parent_id, student_id')
+    
+    if (parentLinksError) {
+      logger.error('Error fetching parent links', parentLinksError)
+    }
+    
+    // Get all mentor-student links
+    const { data: mentorLinks, error: mentorLinksError } = await supabase
+      .from('mentor_student_links')
+      .select('mentor_id, student_id')
+    
+    if (mentorLinksError) {
+      logger.error('Error fetching mentor links', mentorLinksError)
+    }
+    
+    // Get all parents and mentors
+    const { data: allUsers, error: usersError } = await supabase
+      .from('users')
+      .select('*')
+      .in('role', ['parent', 'mentor'])
+    
+    if (usersError) {
+      logger.error('Error fetching parents/mentors', usersError)
+      return []
+    }
+    
+    const parentsMap = new Map<string, User>()
+    const mentorsMap = new Map<string, User>()
+    
+    allUsers?.forEach(user => {
+      if (user.role === 'parent') {
+        parentsMap.set(user.id, user as User)
+      } else if (user.role === 'mentor') {
+        mentorsMap.set(user.id, user as User)
+      }
+    })
+    
+    // Build relationships
+    const relationships: UserRelationship[] = students.map(student => {
+      const parents = (parentLinks || [])
+        .filter(link => link.student_id === student.id)
+        .map(link => parentsMap.get(link.parent_id))
+        .filter((p): p is User => p !== undefined)
+      
+      const mentors = (mentorLinks || [])
+        .filter(link => link.student_id === student.id)
+        .map(link => mentorsMap.get(link.mentor_id))
+        .filter((m): m is User => m !== undefined)
+      
+      return {
+        student,
+        parents,
+        mentors,
+      }
+    })
+    
+    return relationships
+  } catch (error) {
+    logger.error('Error in getAllUserRelationships', error)
     return []
   }
 }
@@ -605,6 +686,264 @@ export async function deleteUniversityStrategy(strategyId: string): Promise<bool
     return true
   } catch (error) {
     logger.error('Error in deleteUniversityStrategy', error, { strategyId })
+    return false
+  }
+}
+
+// ============================================
+// MENTOR-STUDENT LINK QUERIES
+// ============================================
+
+export async function createMentorStudentLink(
+  mentorId: string,
+  studentId: string
+): Promise<MentorStudentLink | null> {
+  try {
+    const { data, error } = await supabase
+      .from('mentor_student_links')
+      .insert({
+        mentor_id: mentorId,
+        student_id: studentId,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      logger.error('Error creating mentor-student link', error, { mentorId, studentId })
+      return null
+    }
+
+    return data as MentorStudentLink
+  } catch (error) {
+    logger.error('Error in createMentorStudentLink', error, { mentorId, studentId })
+    return null
+  }
+}
+
+export async function deleteMentorStudentLink(
+  mentorId: string,
+  studentId: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('mentor_student_links')
+      .delete()
+      .eq('mentor_id', mentorId)
+      .eq('student_id', studentId)
+
+    if (error) {
+      logger.error('Error deleting mentor-student link', error, { mentorId, studentId })
+      return false
+    }
+
+    return true
+  } catch (error) {
+    logger.error('Error in deleteMentorStudentLink', error, { mentorId, studentId })
+    return false
+  }
+}
+
+export async function getLinkedStudentsForMentor(mentorId: string): Promise<User[]> {
+  try {
+    const { data, error } = await supabase
+      .from('mentor_student_links')
+      .select('student_id')
+      .eq('mentor_id', mentorId)
+
+    if (error || !data) {
+      logger.error('Error fetching linked students for mentor', error, { mentorId })
+      return []
+    }
+
+    const studentIds = data.map((link) => link.student_id)
+
+    if (studentIds.length === 0) {
+      return []
+    }
+
+    const { data: students, error: studentsError } = await supabase
+      .from('users')
+      .select('*')
+      .in('id', studentIds)
+
+    if (studentsError) {
+      logger.error('Error fetching students', studentsError, { mentorId, studentIds })
+      return []
+    }
+
+    return (students || []) as User[]
+  } catch (error) {
+    logger.error('Error in getLinkedStudentsForMentor', error, { mentorId })
+    return []
+  }
+}
+
+export async function getMentorsForStudent(studentId: string): Promise<User[]> {
+  try {
+    const { data, error } = await supabase
+      .from('mentor_student_links')
+      .select('mentor_id')
+      .eq('student_id', studentId)
+
+    if (error || !data) {
+      logger.error('Error fetching mentors for student', error, { studentId })
+      return []
+    }
+
+    const mentorIds = data.map((link) => link.mentor_id)
+
+    if (mentorIds.length === 0) {
+      return []
+    }
+
+    const { data: mentors, error: mentorsError } = await supabase
+      .from('users')
+      .select('*')
+      .in('id', mentorIds)
+
+    if (mentorsError) {
+      logger.error('Error fetching mentors', mentorsError, { studentId, mentorIds })
+      return []
+    }
+
+    return (mentors || []) as User[]
+  } catch (error) {
+    logger.error('Error in getMentorsForStudent', error, { studentId })
+    return []
+  }
+}
+
+// ============================================
+// MENTOR COMMENTS QUERIES
+// ============================================
+
+export async function createMentorComment(
+  mentorId: string,
+  studentId: string,
+  section: string,
+  commentText: string,
+  commentType: 'feedback' | 'plan' | 'suggestion' = 'feedback',
+  sectionItemId?: string | null
+): Promise<MentorComment | null> {
+  try {
+    const { data, error } = await supabase
+      .from('mentor_comments')
+      .insert({
+        mentor_id: mentorId,
+        student_id: studentId,
+        section,
+        section_item_id: sectionItemId || null,
+        comment_text: commentText,
+        comment_type: commentType,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      logger.error('Error creating mentor comment', error, { mentorId, studentId, section })
+      return null
+    }
+
+    return data as MentorComment
+  } catch (error) {
+    logger.error('Error in createMentorComment', error, { mentorId, studentId, section })
+    return null
+  }
+}
+
+export async function getMentorComments(
+  studentId: string,
+  section?: string,
+  sectionItemId?: string | null
+): Promise<(MentorComment & { mentor?: { full_name: string | null; email: string } })[]> {
+  try {
+    let query = supabase
+      .from('mentor_comments')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false })
+
+    if (section) {
+      query = query.eq('section', section)
+    }
+
+    if (sectionItemId) {
+      query = query.eq('section_item_id', sectionItemId)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      logger.error('Error fetching mentor comments', error, { studentId, section, sectionItemId })
+      return []
+    }
+
+    if (!data || data.length === 0) {
+      return []
+    }
+
+    // Fetch mentor details for each comment
+    const mentorIds = [...new Set(data.map((c: MentorComment) => c.mentor_id))]
+    const { data: mentors, error: mentorsError } = await supabase
+      .from('users')
+      .select('id, full_name, email')
+      .in('id', mentorIds)
+
+    if (mentorsError) {
+      logger.error('Error fetching mentors', mentorsError)
+    }
+
+    const mentorMap = new Map((mentors || []).map((m: User) => [m.id, { full_name: m.full_name, email: m.email }]))
+
+    return data.map((comment: MentorComment) => ({
+      ...comment,
+      mentor: mentorMap.get(comment.mentor_id),
+    })) as (MentorComment & { mentor?: { full_name: string | null; email: string } })[]
+  } catch (error) {
+    logger.error('Error in getMentorComments', error, { studentId, section, sectionItemId })
+    return []
+  }
+}
+
+export async function updateMentorComment(
+  commentId: string,
+  commentText: string
+): Promise<MentorComment | null> {
+  try {
+    const { data, error } = await supabase
+      .from('mentor_comments')
+      .update({ comment_text: commentText })
+      .eq('id', commentId)
+      .select()
+      .single()
+
+    if (error) {
+      logger.error('Error updating mentor comment', error, { commentId })
+      return null
+    }
+
+    return data as MentorComment
+  } catch (error) {
+    logger.error('Error in updateMentorComment', error, { commentId })
+    return null
+  }
+}
+
+export async function deleteMentorComment(commentId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('mentor_comments')
+      .delete()
+      .eq('id', commentId)
+
+    if (error) {
+      logger.error('Error deleting mentor comment', error, { commentId })
+      return false
+    }
+
+    return true
+  } catch (error) {
+    logger.error('Error in deleteMentorComment', error, { commentId })
     return false
   }
 }

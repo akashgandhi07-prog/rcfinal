@@ -11,6 +11,7 @@ export function ClinicalBoard() {
       title: "Dentistry",
       credential: "GDC Registered Dentist",
       graduation: "King's College London with Honours",
+      image: "/professional-dentist-portrait-grayscale.jpg",
       profile: "Graduated from King's College London with Honours. NHS Dentist with over 12 years of professional practice and admissions expertise. Specialises in guiding international candidates through the unique requirements of UK dental schools. Expert in interview preparation, having conducted hundreds of mock MMI sessions and panel interviews. Renowned for translating complex professional experiences into compelling personal statements that resonate with admissions committees.",
     },
     {
@@ -19,6 +20,7 @@ export function ClinicalBoard() {
       title: "Medicine",
       credential: "GMC Registered Specialist",
       graduation: "Cambridge & UCL - 1st Class and Distinction",
+      image: "/professional-doctor-portrait-grayscale.jpg",
       profile: "Graduated from Cambridge & UCL with 1st Class and Distinction. NHS Family Medicine Consultant with 12+ years of professional excellence and admissions mentorship. Extensive experience supporting international candidates from IB, American, and global curricula. Master interviewer with deep expertise in MMI design and medical ethics. Has successfully guided hundreds of candidates to G5 medical schools, with particular strength in strategic university selection and personal statement refinement.",
     },
     {
@@ -27,6 +29,7 @@ export function ClinicalBoard() {
       title: "Veterinary Medicine",
       credential: "RCVS Registered Veterinary Surgeon",
       graduation: "Royal Veterinary College",
+      image: "/professional-veterinarian-portrait-grayscale.jpg",
       profile: "Graduated from the Royal Veterinary College. RCVS Registered Veterinary Surgeon with over 12 years of professional practice and admissions coaching. Expert in veterinary school admissions strategy, having mentored candidates across all UK veterinary programmes. Specialises in helping international students navigate the competitive veterinary admissions landscape. Known for exceptional interview preparation, combining professional insight with strategic candidacy development to secure placements at top-tier institutions.",
     },
   ]
@@ -56,24 +59,24 @@ export function ClinicalBoard() {
             const imageOnLeft = index % 2 === 0
 
             return (
-              <motion.div
-                key={consultant.name}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+            <motion.div
+              key={consultant.name}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
                 transition={{ duration: 0.8, delay: index * 0.15 }}
                 className={`flex flex-col md:flex-row items-start md:items-stretch gap-6 md:gap-8 ${
                   imageOnLeft ? "" : "md:flex-row-reverse"
                 }`}
-              >
+            >
                 {/* Portrait image */}
                 <div className="w-full max-w-[200px] mx-auto md:mx-0 md:w-[240px] md:h-full flex-shrink-0">
                   <div className="group relative h-full">
                     <div className="relative aspect-[3/4] md:aspect-auto md:h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-lg overflow-hidden shadow-lg shadow-black/50 border border-[#D4AF37]/25 group-hover:border-[#D4AF37]/40 transition-all duration-300">
-                      <Image
-                        src={`/professional-headshot.png?height=600&width=450&query=professional+medical+consultant+portrait`}
-                        alt={consultant.name}
-                        fill
+                <Image
+                        src={consultant.image}
+                  alt={consultant.name}
+                  fill
                         className="object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-500"
                       />
                     </div>
@@ -117,12 +120,12 @@ export function ClinicalBoard() {
                         </p>
                       </div>
                       <p className="text-slate-100 text-sm md:text-base leading-relaxed font-light flex-1">
-                        {consultant.profile}
-                      </p>
-                    </div>
+                      {consultant.profile}
+                    </p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
+            </motion.div>
             )
           })}
         </div>

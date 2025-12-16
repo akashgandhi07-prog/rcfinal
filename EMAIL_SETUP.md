@@ -49,3 +49,4 @@ Vercel has built-in email support. Check their documentation.
 Currently, the API route logs the email content to the console for development/testing. In production, you must configure one of the above options.
 
 
+

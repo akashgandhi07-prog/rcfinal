@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { UserRole } from "@/lib/supabase/types"
+import { Eye, EyeOff } from "lucide-react"
 
 interface LoginScreenProps {
   onLogin?: () => void
@@ -32,6 +33,18 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [captchaQuestion, setCaptchaQuestion] = useState("")
   const [captchaAnswer, setCaptchaAnswer] = useState("")
   const [captchaExpected, setCaptchaExpected] = useState<string>("")
+
+  // Password visibility toggles
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [showSignupPassword, setShowSignupPassword] = useState(false)
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false)
+  const [showDemoPassword, setShowDemoPassword] = useState(false)
+  
+  // Forgot password state
+  const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("")
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false)
 
   const generateCaptcha = () => {
     const a = Math.floor(Math.random() * 5) + 3
@@ -80,8 +93,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             email: data.user.email,
             role: "student",
             onboarding_status: "pending",
+            approval_status: "pending",
           })
+        } else if (userData) {
+          // Check if user is approved (admins are always approved)
+          const isAdmin = userData.role === "admin"
+          const isApproved = userData.approval_status === "approved" || isAdmin
+          
+          if (!isApproved && !isAdmin) {
+            setError("Your account is pending approval. Please contact an administrator.")
+            setIsLoading(false)
+            return
+          }
         }
+
+        // Small delay to ensure session is established
+        await new Promise(resolve => setTimeout(resolve, 100))
 
         if (onLogin) {
           onLogin()
@@ -103,6 +130,41 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setShowDemoDialog(true)
     setDemoPassword("")
     setDemoError(null)
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotPasswordEmail) {
+      setError("Please enter your email address")
+      return
+    }
+
+    setForgotPasswordLoading(true)
+    setError(null)
+    setForgotPasswordSuccess(false)
+
+    try {
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/portal/reset-password`
+        : '/portal/reset-password'
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo,
+      })
+
+      if (resetError) {
+        setError(resetError.message)
+        return
+      }
+
+      setForgotPasswordSuccess(true)
+      setForgotPasswordEmail("")
+    } catch (err) {
+      console.error("Password reset error:", err)
+      setError("An error occurred. Please try again.")
+    } finally {
+      setForgotPasswordLoading(false)
+    }
   }
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -128,9 +190,17 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         return
       }
 
+      // Get the current origin (production URL or localhost for dev)
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/portal`
+        : '/portal'
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: redirectTo,
+        },
       })
 
       if (signUpError) {
@@ -139,21 +209,41 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       }
 
       if (data.user) {
+        // Admins and mentors skip onboarding, so set it to complete
+        // Students and parents need to complete onboarding
+        const needsOnboarding = signupRole === "student" || signupRole === "parent"
+        
         // Create a corresponding profile row with pending onboarding and approval
-        const { error: insertError } = await supabase.from("users").upsert(
+        const { data: insertData, error: insertError } = await supabase.from("users").upsert(
           {
             id: data.user.id,
             email: data.user.email,
             role: signupRole,
-            onboarding_status: "pending",
+            onboarding_status: needsOnboarding ? "pending" : "complete",
             approval_status: "pending",
           },
           { onConflict: "id" }
         )
 
         if (insertError) {
-          console.error("Error creating user profile for signup:", insertError)
+          // Log full error details
+          console.error("Error creating user profile for signup:")
+          console.error("Error message:", insertError.message)
+          console.error("Error code:", insertError.code)
+          console.error("Error details:", insertError.details)
+          console.error("Error hint:", insertError.hint)
+          console.error("Full error object:", JSON.stringify(insertError, null, 2))
+          
+          // Show user-friendly error
+          setError(
+            `Account created but profile setup failed: ${insertError.message || "Unknown error"}. ` +
+            `Please contact support or try again. Error code: ${insertError.code || "N/A"}`
+          )
+          return
         }
+
+        // Success - profile created
+        console.log("User profile created successfully:", insertData)
       }
 
       setSuccessMessage(
@@ -239,7 +329,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#0B1120] flex items-center justify-center p-6">
-      <Card className="w-full max-w-md bg-white/10 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl">
+      <Card className="w-full max-w-md bg-white/10 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl border border-slate-700/30">
         <CardHeader className="text-center space-y-4 pb-6">
           <div className="space-y-2">
             <h1 className="text-3xl font-serif text-[#D4AF37] tracking-widest mb-2 font-light">
@@ -247,7 +337,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </h1>
             <p className="text-sm text-slate-300 font-light">Private Client Portal</p>
           </div>
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400 font-light">
+          <div className="mt-6 flex items-center justify-center gap-3">
             <button
               type="button"
               onClick={() => {
@@ -255,15 +345,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 setError(null)
                 setSuccessMessage(null)
               }}
-              className={`px-3 py-1 border-b ${
+              className={`px-6 py-2.5 rounded-lg font-light transition-all ${
                 mode === "login"
-                  ? "border-[#D4AF37] text-[#D4AF37]"
-                  : "border-transparent hover:text-white/80"
+                  ? "bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/20"
+                  : "bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10"
               }`}
             >
-              Existing client login
+              Login
             </button>
-            <span className="text-slate-600">/</span>
             <button
               type="button"
               onClick={() => {
@@ -272,13 +361,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 setSuccessMessage(null)
                 generateCaptcha()
               }}
-              className={`px-3 py-1 border-b ${
+              className={`px-6 py-2.5 rounded-lg font-light transition-all ${
                 mode === "signup"
-                  ? "border-[#D4AF37] text-[#D4AF37]"
-                  : "border-transparent hover:text-white/80"
+                  ? "bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/20"
+                  : "bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10"
               }`}
             >
-              New family registration
+              Register
             </button>
           </div>
         </CardHeader>
@@ -305,7 +394,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                   placeholder="student@example.com"
                   required
                   disabled={isLoading}
@@ -316,16 +405,38 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 <Label htmlFor="password" className="text-slate-200 font-light text-sm">
                   Password
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
-                  placeholder="••••••••"
-                  required
-                  disabled={isLoading}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showLoginPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                    placeholder="••••••••"
+                    required
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                    aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                  >
+                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPasswordDialog(true)
+                      setForgotPasswordEmail(email) // Pre-fill with entered email
+                    }}
+                    className="text-xs text-slate-400 hover:text-[#D4AF37] transition-colors font-light"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -337,7 +448,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   type="text"
                   value={twoFA}
                   onChange={(e) => setTwoFA(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                   placeholder="000000"
                   maxLength={6}
                   disabled={isLoading}
@@ -374,7 +485,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                   placeholder="parent.or.student@example.com"
                   required
                   disabled={isLoading}
@@ -386,31 +497,51 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   <Label htmlFor="signup-password" className="text-slate-200 font-light text-sm">
                     Create Password
                   </Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
-                    placeholder="••••••••"
-                    required
-                    disabled={isLoading}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="signup-password"
+                      type={showSignupPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                      placeholder="••••••••"
+                      required
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignupPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                      aria-label={showSignupPassword ? "Hide password" : "Show password"}
+                    >
+                      {showSignupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-confirm-password" className="text-slate-200 font-light text-sm">
                     Confirm Password
                   </Label>
-                  <Input
-                    id="signup-confirm-password"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
-                    placeholder="••••••••"
-                    required
-                    disabled={isLoading}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="signup-confirm-password"
+                      type={showSignupConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                      placeholder="••••••••"
+                      required
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignupConfirmPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                      aria-label={showSignupConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showSignupConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -428,11 +559,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700 text-slate-100">
                     <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="parent">Parent</SelectItem>
+                    <SelectItem value="parent">Guardian</SelectItem>
+                    <SelectItem value="mentor">Mentor</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-slate-400 font-light">
-                  Parents can later be linked to one or more students by your Regent&apos;s consultant.
+                  Guardians can later be linked to one or more students by your Regent&apos;s consultant.
                 </p>
               </div>
 
@@ -505,24 +637,34 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               <Label htmlFor="demo-password" className="text-slate-200 font-light text-sm">
                 Demo Password
               </Label>
-              <Input
-                id="demo-password"
-                type="password"
-                value={demoPassword}
-                onChange={(e) => {
-                  setDemoPassword(e.target.value)
-                  setDemoError(null)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleDemoAccess()
-                  }
-                }}
-                className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
-                placeholder="Enter demo password"
-                autoFocus
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="demo-password"
+                  type={showDemoPassword ? "text" : "password"}
+                  value={demoPassword}
+                  onChange={(e) => {
+                    setDemoPassword(e.target.value)
+                    setDemoError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleDemoAccess()
+                    }
+                  }}
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                  placeholder="Enter demo password"
+                  autoFocus
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDemoPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                  aria-label={showDemoPassword ? "Hide password" : "Show password"}
+                >
+                  {showDemoPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -548,6 +690,89 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               {isLoading ? "Accessing..." : "Continue"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={showForgotPasswordDialog} onOpenChange={setShowForgotPasswordDialog}>
+        <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-[#D4AF37] font-light text-xl">
+              Reset Password
+            </DialogTitle>
+            <DialogDescription className="text-slate-300 font-light">
+              Enter your email address and we&apos;ll send you a link to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+          {forgotPasswordSuccess ? (
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-emerald-900/30 border border-emerald-700/60 rounded-lg">
+                <p className="text-sm text-emerald-200 font-light">
+                  Password reset email sent! Please check your inbox and follow the instructions to reset your password.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPasswordDialog(false)
+                    setForgotPasswordSuccess(false)
+                    setForgotPasswordEmail("")
+                  }}
+                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium w-full"
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4 py-4">
+              {error && (
+                <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
+                  <p className="text-sm text-red-300 font-light">{error}</p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="forgot-password-email" className="text-slate-200 font-light text-sm">
+                  Email Address
+                </Label>
+                <Input
+                  id="forgot-password-email"
+                  type="email"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                  placeholder="your.email@example.com"
+                  required
+                  disabled={forgotPasswordLoading}
+                  autoFocus
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowForgotPasswordDialog(false)
+                    setForgotPasswordEmail("")
+                    setError(null)
+                    setForgotPasswordSuccess(false)
+                  }}
+                  className="border-slate-600/50 text-slate-200 hover:bg-white/10"
+                  disabled={forgotPasswordLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium"
+                  disabled={forgotPasswordLoading || !forgotPasswordEmail}
+                >
+                  {forgotPasswordLoading ? "Sending..." : "Send Reset Link"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

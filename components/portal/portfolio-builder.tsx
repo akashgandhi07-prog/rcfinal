@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, CheckCircle2, Briefcase, Heart, BookOpen, Dumbbell } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,6 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MentorComments } from "./mentor-comments"
+import { getCurrentUser } from "@/lib/supabase/queries"
+import type { User } from "@/lib/supabase/types"
 
 interface Activity {
   id: string
@@ -23,7 +25,8 @@ interface Activity {
 }
 
 interface PortfolioBuilderProps {
-  viewMode: "student" | "parent"
+  viewMode: "student" | "parent" | "mentor"
+  studentId?: string
 }
 
 // Helper function to format date as DD-MM-YYYY
@@ -47,9 +50,10 @@ const formatDateRange = (startDate: string, endDate: string): string => {
   return `${start} - ${end}`
 }
 
-export function PortfolioBuilder({ viewMode }: PortfolioBuilderProps) {
+export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("work")
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     organization: "",
     role: "",
@@ -57,6 +61,19 @@ export function PortfolioBuilder({ viewMode }: PortfolioBuilderProps) {
     endDate: "",
     notes: "",
   })
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = await getCurrentUser()
+      if (user) {
+        setCurrentUserId(user.id)
+      }
+    }
+    loadUser()
+  }, [])
+
+  const displayStudentId = studentId || currentUserId
+  const canEdit = viewMode === "student" || viewMode === "mentor"
 
   const [activities, setActivities] = useState<Record<string, Activity[]>>({
     work: [
@@ -134,7 +151,7 @@ export function PortfolioBuilder({ viewMode }: PortfolioBuilderProps) {
           <p className="text-sm text-slate-700 font-light">Document your experiences and reflections</p>
         </div>
 
-        {viewMode === "student" && (
+        {canEdit && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light px-6 shadow-lg shadow-[#D4AF37]/20">
@@ -261,7 +278,7 @@ export function PortfolioBuilder({ viewMode }: PortfolioBuilderProps) {
                   return TabIcon ? <TabIcon size={48} className="mx-auto text-slate-400 mb-4" strokeWidth={1} /> : null
                 })()}
                 <p className="text-slate-700 font-light">No activities added yet</p>
-                {viewMode === "student" && (
+                {canEdit && (
                   <p className="text-sm text-slate-600 mt-2 font-light">Click "Add Activity" to get started</p>
                 )}
               </CardContent>
@@ -291,9 +308,21 @@ export function PortfolioBuilder({ viewMode }: PortfolioBuilderProps) {
                   <CardContent className="pt-0">
                     <p className="text-sm text-slate-700 leading-relaxed font-light mb-4">{activity.notes}</p>
                     {activity.verified && (
-                      <div className="flex items-center gap-2 pt-3 border-t border-slate-200">
+                      <div className="flex items-center gap-2 pt-3 border-t border-slate-200 mb-4">
                         <CheckCircle2 size={16} className="text-green-600" />
                         <p className="text-xs text-green-700 font-light">Verified by Consultant</p>
+                      </div>
+                    )}
+                    {/* Mentor Comments for this activity */}
+                    {displayStudentId && (
+                      <div className="mt-4 pt-4 border-t border-slate-200">
+                        <MentorComments
+                          studentId={displayStudentId}
+                          section={activeTab === "work" ? "work_experience" : activeTab === "volunteering" ? "volunteering" : activeTab === "extracurricular" ? "supracurricular" : "portfolio"}
+                          sectionItemId={activity.id}
+                          viewMode={viewMode}
+                          currentUserId={currentUserId || undefined}
+                        />
                       </div>
                     )}
                   </CardContent>

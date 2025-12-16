@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { getLinkedStudents } from "@/lib/supabase/queries"
+import { getLinkedStudents, getLinkedStudentsForMentor, getCurrentUser } from "@/lib/supabase/queries"
 import { supabase } from "@/lib/supabase/client"
 import type { User } from "@/lib/supabase/types"
 import { User as UserIcon } from "lucide-react"
@@ -18,15 +18,35 @@ export function ParentStudentSelector({ currentUserId, onStudentSelect }: Parent
   const [linkedStudents, setLinkedStudents] = useState<User[]>([])
   const [selectedStudentId, setSelectedStudentId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
+  const [userRole, setUserRole] = useState<"parent" | "mentor" | null>(null)
 
   useEffect(() => {
-    loadLinkedStudents()
+    loadUserRole()
   }, [currentUserId])
+
+  useEffect(() => {
+    if (userRole) {
+      loadLinkedStudents()
+    }
+  }, [currentUserId, userRole])
+
+  const loadUserRole = async () => {
+    try {
+      const user = await getCurrentUser()
+      if (user && (user.role === "parent" || user.role === "mentor")) {
+        setUserRole(user.role)
+      }
+    } catch (error) {
+      console.error("Error loading user role:", error)
+    }
+  }
 
   const loadLinkedStudents = async () => {
     setIsLoading(true)
     try {
-      const students = await getLinkedStudents(currentUserId)
+      const students = userRole === "mentor" 
+        ? await getLinkedStudentsForMentor(currentUserId)
+        : await getLinkedStudents(currentUserId)
       setLinkedStudents(students)
       
       // Auto-select first student if available
@@ -77,7 +97,7 @@ export function ParentStudentSelector({ currentUserId, onStudentSelect }: Parent
         <div className="space-y-2">
           <Label className="text-xs text-slate-500 uppercase tracking-wider font-light flex items-center gap-2">
             <UserIcon size={14} />
-            Viewing Student
+            {userRole === "mentor" ? "Mentoring Student" : "Viewing Student"}
           </Label>
           <Select value={selectedStudentId} onValueChange={handleStudentChange}>
             <SelectTrigger className="rounded-lg">

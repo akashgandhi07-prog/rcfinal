@@ -37,16 +37,26 @@ export function StrategyKanban({ viewMode, userData }: StrategyKanbanProps) {
   }
 
   const moveToApplied = (uni: University) => {
-    setShortlist(shortlist.filter((u) => u.id !== uni.id))
-    setApplied([...applied, uni])
+    if (viewMode === "parent") {
+      // Parents can edit universities
+      setShortlist(shortlist.filter((u) => u.id !== uni.id))
+      setApplied([...applied, uni])
+    } else if (viewMode === "student") {
+      setShortlist(shortlist.filter((u) => u.id !== uni.id))
+      setApplied([...applied, uni])
+    }
   }
 
   const removeFromShortlist = (uni: University) => {
-    setShortlist(shortlist.filter((u) => u.id !== uni.id))
+    if (viewMode === "parent" || viewMode === "student") {
+      setShortlist(shortlist.filter((u) => u.id !== uni.id))
+    }
   }
 
   const removeFromApplied = (uni: University) => {
-    setApplied(applied.filter((u) => u.id !== uni.id))
+    if (viewMode === "parent" || viewMode === "student") {
+      setApplied(applied.filter((u) => u.id !== uni.id))
+    }
   }
 
   return (
@@ -58,8 +68,8 @@ export function StrategyKanban({ viewMode, userData }: StrategyKanbanProps) {
         </p>
       </div>
 
-      {/* Add University Dropdown */}
-      {viewMode === "student" && shortlist.length < 4 && (
+      {/* Add University Dropdown - Allow both students and parents to edit universities */}
+      {(viewMode === "student" || viewMode === "parent") && shortlist.length < 4 && (
         <Card className="bg-white border-slate-200 rounded-lg">
           <CardContent className="p-4">
             <div className="flex gap-3 items-end">
@@ -120,7 +130,7 @@ export function StrategyKanban({ viewMode, userData }: StrategyKanbanProps) {
                         <p>Entry Requirement: {uni.entranceReq}</p>
                       </div>
                     </div>
-                    {viewMode === "student" && (
+                    {(viewMode === "student" || viewMode === "parent") && (
                       <button
                         onClick={() => removeFromShortlist(uni)}
                         className="ml-2 p-1 hover:bg-[#D4AF37]/20 rounded transition-colors"
@@ -129,7 +139,7 @@ export function StrategyKanban({ viewMode, userData }: StrategyKanbanProps) {
                       </button>
                     )}
                   </div>
-                  {viewMode === "student" && (
+                  {(viewMode === "student" || viewMode === "parent") && (
                     <Button
                       size="sm"
                       onClick={() => moveToApplied(uni)}
@@ -167,7 +177,7 @@ export function StrategyKanban({ viewMode, userData }: StrategyKanbanProps) {
                         <p>Entry Requirement: {uni.entranceReq}</p>
                       </div>
                     </div>
-                    {viewMode === "student" && (
+                    {(viewMode === "student" || viewMode === "parent") && (
                       <button
                         onClick={() => removeFromApplied(uni)}
                         className="ml-2 p-1 hover:bg-green-100 rounded transition-colors"

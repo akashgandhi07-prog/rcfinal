@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { Plus, TrendingUp, Award, ClipboardList, Pencil, Trash2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, TrendingUp, Award, ClipboardList, Pencil, Trash2, Calendar, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -19,13 +19,13 @@ interface UCATMock {
   vr: number
   dm: number
   qr: number
-  ar: number
   sjt: string
   total: number
 }
 
 interface UCATTrackerProps {
-  viewMode: "student" | "parent"
+  viewMode: "student" | "parent" | "mentor"
+  studentId?: string
 }
 
 export function UCATTracker({ viewMode }: UCATTrackerProps) {
@@ -37,9 +37,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 680,
       dm: 720,
       qr: 690,
-      ar: 710,
       sjt: "Band 1",
-      total: 2800,
+      total: 2090,
     },
     {
       id: "2",
@@ -48,9 +47,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 710,
       dm: 730,
       qr: 720,
-      ar: 740,
       sjt: "Band 1",
-      total: 2900,
+      total: 2160,
     },
     {
       id: "3",
@@ -59,9 +57,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 720,
       dm: 750,
       qr: 730,
-      ar: 760,
       sjt: "Band 1",
-      total: 2960,
+      total: 2200,
     },
     {
       id: "4",
@@ -70,9 +67,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 740,
       dm: 760,
       qr: 750,
-      ar: 770,
       sjt: "Band 1",
-      total: 3020,
+      total: 2250,
     },
     {
       id: "5",
@@ -81,9 +77,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 750,
       dm: 770,
       qr: 760,
-      ar: 780,
       sjt: "Band 1",
-      total: 3060,
+      total: 2280,
     },
     {
       id: "6",
@@ -92,9 +87,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 760,
       dm: 780,
       qr: 770,
-      ar: 790,
       sjt: "Band 1",
-      total: 3100,
+      total: 2310,
     },
     {
       id: "7",
@@ -103,9 +97,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 770,
       dm: 790,
       qr: 780,
-      ar: 800,
       sjt: "Band 1",
-      total: 3140,
+      total: 2340,
     },
     {
       id: "8",
@@ -114,9 +107,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 780,
       dm: 800,
       qr: 790,
-      ar: 810,
       sjt: "Band 1",
-      total: 3180,
+      total: 2370,
     },
     {
       id: "9",
@@ -125,9 +117,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 790,
       dm: 810,
       qr: 800,
-      ar: 820,
       sjt: "Band 1",
-      total: 3220,
+      total: 2400,
     },
     {
       id: "10",
@@ -136,9 +127,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 800,
       dm: 820,
       qr: 810,
-      ar: 830,
       sjt: "Band 1",
-      total: 3260,
+      total: 2430,
     },
     {
       id: "11",
@@ -147,9 +137,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 810,
       dm: 830,
       qr: 820,
-      ar: 840,
       sjt: "Band 1",
-      total: 3300,
+      total: 2460,
     },
     {
       id: "12",
@@ -158,36 +147,86 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: 820,
       dm: 840,
       qr: 830,
-      ar: 850,
       sjt: "Band 1",
-      total: 3340,
+      total: 2490,
     },
   ])
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [formData, setFormData] = useState({
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingMock, setEditingMock] = useState<UCATMock | null>(null)
+  const [examDate, setExamDate] = useState<string>("")
+  const [daysUntilExam, setDaysUntilExam] = useState<number | null>(null)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [showFinalConfirm, setShowFinalConfirm] = useState(false)
+
+  const emptyFormState = {
     date: "",
     provider: "",
     vr: "",
     dm: "",
     qr: "",
-    ar: "",
     sjt: "",
-  })
+  }
+
+  const [formData, setFormData] = useState(emptyFormState)
+  const [editFormData, setEditFormData] = useState(emptyFormState)
 
   const highestScore = Math.max(...mocks.map((m) => m.total))
   const averageBand = "Band 1" // Simplified - in real app, calculate from SJT bands
   const mocksCompleted = mocks.length
 
+  // Load exam date from localStorage on mount
+  useEffect(() => {
+    const savedExamDate = localStorage.getItem("ucat_exam_date")
+    if (savedExamDate) {
+      setExamDate(savedExamDate)
+    }
+  }, [])
+
+  // Calculate days until exam
+  useEffect(() => {
+    if (examDate) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const exam = new Date(examDate)
+      exam.setHours(0, 0, 0, 0)
+      const diffTime = exam.getTime() - today.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      setDaysUntilExam(diffDays)
+      localStorage.setItem("ucat_exam_date", examDate)
+    } else {
+      setDaysUntilExam(null)
+      localStorage.removeItem("ucat_exam_date")
+    }
+  }, [examDate])
+
   const chartData = mocks.map((m) => ({
     date: new Date(m.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
     totalScore: m.total,
-    averageSubtest: Math.round((m.vr + m.dm + m.qr + m.ar) / 4),
+    averageSubtest: Math.round((m.vr + m.dm + m.qr) / 3),
   }))
+
+  const calculateTotal = (data: { vr: string; dm: string; qr: string }) =>
+    Number(data.vr) + Number(data.dm) + Number(data.qr)
+
+  const isScoreValid = (value: string) => {
+    const num = Number(value)
+    return !Number.isNaN(num) && num >= 300 && num <= 900
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const total = Number(formData.vr) + Number(formData.dm) + Number(formData.qr) + Number(formData.ar)
+    if (!isScoreValid(formData.vr) || !isScoreValid(formData.dm) || !isScoreValid(formData.qr)) {
+      window.alert("Each subtest score (VR, DM, QR) must be between 300 and 900.")
+      return
+    }
+
+    const total = calculateTotal(formData)
+    if (total > 2700) {
+      window.alert("Total UCAT score cannot exceed 2700 (VR + DM + QR, each max 900).")
+      return
+    }
 
     const newMock: UCATMock = {
       id: Date.now().toString(),
@@ -196,22 +235,117 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       vr: Number(formData.vr),
       dm: Number(formData.dm),
       qr: Number(formData.qr),
-      ar: Number(formData.ar),
       sjt: formData.sjt,
       total,
     }
 
     setMocks([...mocks, newMock])
-    setIsDialogOpen(false)
-    setFormData({ date: "", provider: "", vr: "", dm: "", qr: "", ar: "", sjt: "" })
+    setIsCreateDialogOpen(false)
+    setFormData(emptyFormState)
   }
 
   const handleDelete = (id: string) => {
     setMocks(mocks.filter((m) => m.id !== id))
   }
 
+  const handleEditClick = (mock: UCATMock) => {
+    setEditingMock(mock)
+    setEditFormData({
+      date: mock.date,
+      provider: mock.provider,
+      vr: String(mock.vr),
+      dm: String(mock.dm),
+      qr: String(mock.qr),
+      sjt: mock.sjt,
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingMock) return
+
+    if (
+      !isScoreValid(editFormData.vr) ||
+      !isScoreValid(editFormData.dm) ||
+      !isScoreValid(editFormData.qr)
+    ) {
+      window.alert("Each subtest score (VR, DM, QR) must be between 300 and 900.")
+      return
+    }
+
+    const total = calculateTotal(editFormData)
+    if (total > 2700) {
+      window.alert("Total UCAT score cannot exceed 2700 (VR + DM + QR, each max 900).")
+      return
+    }
+
+    const updated: UCATMock = {
+      ...editingMock,
+      date: editFormData.date,
+      provider: editFormData.provider,
+      vr: Number(editFormData.vr),
+      dm: Number(editFormData.dm),
+      qr: Number(editFormData.qr),
+      sjt: editFormData.sjt,
+      total,
+    }
+
+    setMocks(mocks.map((m) => (m.id === editingMock.id ? updated : m)))
+    setIsEditDialogOpen(false)
+    setEditingMock(null)
+  }
+
+  const handleClearAllClick = () => {
+    setShowClearConfirm(true)
+  }
+
+  const handleClearAllConfirm = () => {
+    setShowClearConfirm(false)
+    setShowFinalConfirm(true)
+  }
+
+  const handleClearAllFinal = () => {
+    setMocks([])
+    setShowFinalConfirm(false)
+  }
+
   return (
     <div className="space-y-6">
+      {/* Exam Date Countdown */}
+      <Card className="bg-gradient-to-r from-[#D4AF37]/10 to-[#D4AF37]/5 border-[#D4AF37]/20 rounded-lg shadow-sm">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-[#D4AF37]" />
+              <div>
+                <Label htmlFor="exam-date" className="text-sm font-light text-slate-300">
+                  UCAT Exam Date
+                </Label>
+                <Input
+                  id="exam-date"
+                  type="date"
+                  value={examDate}
+                  onChange={(e) => setExamDate(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white rounded-lg mt-1 w-full sm:w-auto focus:ring-2 focus:ring-[#D4AF37]/20 focus:border-[#D4AF37] transition-all"
+                />
+              </div>
+            </div>
+            {daysUntilExam !== null && (
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-[#D4AF37]" />
+                <div>
+                  <p className="text-xs font-light text-slate-400">Days until exam</p>
+                  <p className={`text-2xl font-light ${daysUntilExam < 0 ? "text-red-400" : daysUntilExam <= 30 ? "text-amber-400" : "text-slate-100"}`}>
+                    {daysUntilExam < 0 ? `${Math.abs(daysUntilExam)} days past` : daysUntilExam === 0 ? "Today!" : `${daysUntilExam} days`}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Action Area */}
       <div className="flex justify-between items-center">
         <div>
@@ -220,7 +354,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
         </div>
 
         {viewMode === "student" && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90">
                 <Plus size={16} className="mr-2" />
@@ -266,7 +400,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="vr" className="text-slate-300">
                       VR Score
@@ -312,21 +446,6 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ar" className="text-slate-300">
-                      AR Score
-                    </Label>
-                    <Input
-                      id="ar"
-                      type="number"
-                      min="300"
-                      max="900"
-                      value={formData.ar}
-                      onChange={(e) => setFormData({ ...formData, ar: e.target.value })}
-                      className="bg-slate-900 border-slate-700 text-white"
-                      required
-                    />
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -350,7 +469,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
+                    onClick={() => setIsCreateDialogOpen(false)}
                     className="border-slate-700"
                   >
                     Cancel
@@ -411,7 +530,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: "12px" }} />
-              <YAxis yAxisId="left" stroke="#94a3b8" style={{ fontSize: "12px" }} domain={[2400, 3400]} />
+              <YAxis yAxisId="left" stroke="#94a3b8" style={{ fontSize: "12px" }} domain={[1800, 2700]} />
               <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" style={{ fontSize: "12px" }} domain={[600, 850]} />
               <Tooltip
                 contentStyle={{
@@ -444,10 +563,20 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
         </CardContent>
       </Card>
 
-      {/* Data Table */}
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardHeader>
+      {/* Data Table + Edit Dialog */}
+      <Card className="bg-slate-900/50 border-slate-800 rounded-lg shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-light text-slate-200">Mock Exam History</CardTitle>
+          {viewMode === "student" && mocks.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleClearAllClick}
+              className="border-red-400/50 text-red-400 hover:bg-red-950/30 hover:border-red-400 rounded-lg transition-all"
+            >
+              <Trash2 size={14} className="mr-2" />
+              Clear All Mocks
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -483,10 +612,18 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
                     {viewMode === "student" && (
                       <td className="py-3 px-4 text-sm text-center">
                         <div className="flex gap-2 justify-center">
-                          <button className="p-1 hover:bg-slate-700 rounded">
+                          <button
+                            type="button"
+                            onClick={() => handleEditClick(mock)}
+                            className="p-1 hover:bg-slate-700 rounded"
+                          >
                             <Pencil size={14} className="text-slate-400" />
                           </button>
-                          <button onClick={() => handleDelete(mock.id)} className="p-1 hover:bg-slate-700 rounded">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(mock.id)}
+                            className="p-1 hover:bg-slate-700 rounded"
+                          >
                             <Trash2 size={14} className="text-red-400" />
                           </button>
                         </div>
@@ -499,6 +636,199 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Mock Dialog */}
+      {viewMode === "student" && editingMock && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="bg-[#0B1120] border-slate-800 max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-[#D4AF37] font-serif">Edit Mock Exam Result</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date" className="text-slate-300">
+                    Date
+                  </Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={editFormData.date}
+                    onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                    className="bg-slate-900 border-slate-700 text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-provider" className="text-slate-300">
+                    Mock Provider
+                  </Label>
+                  <Input
+                    id="edit-provider"
+                    type="text"
+                    value={editFormData.provider}
+                    onChange={(e) => setEditFormData({ ...editFormData, provider: e.target.value })}
+                    className="bg-slate-900 border-slate-700 text-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vr" className="text-slate-300">
+                    VR Score
+                  </Label>
+                  <Input
+                    id="edit-vr"
+                    type="number"
+                    min="300"
+                    max="900"
+                    value={editFormData.vr}
+                    onChange={(e) => setEditFormData({ ...editFormData, vr: e.target.value })}
+                    className="bg-slate-900 border-slate-700 text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-dm" className="text-slate-300">
+                    DM Score
+                  </Label>
+                  <Input
+                    id="edit-dm"
+                    type="number"
+                    min="300"
+                    max="900"
+                    value={editFormData.dm}
+                    onChange={(e) => setEditFormData({ ...editFormData, dm: e.target.value })}
+                    className="bg-slate-900 border-slate-700 text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-qr" className="text-slate-300">
+                    QR Score
+                  </Label>
+                  <Input
+                    id="edit-qr"
+                    type="number"
+                    min="300"
+                    max="900"
+                    value={editFormData.qr}
+                    onChange={(e) => setEditFormData({ ...editFormData, qr: e.target.value })}
+                    className="bg-slate-900 border-slate-700 text-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-sjt" className="text-slate-300">
+                  SJT Band
+                </Label>
+                <Select
+                  value={editFormData.sjt}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, sjt: value })}
+                >
+                  <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                    <SelectValue placeholder="Select band" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectItem value="Band 1">Band 1</SelectItem>
+                    <SelectItem value="Band 2">Band 2</SelectItem>
+                    <SelectItem value="Band 3">Band 3</SelectItem>
+                    <SelectItem value="Band 4">Band 4</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="border-slate-700"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90">
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Clear All Mocks - First Confirmation */}
+      <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <DialogContent className="bg-slate-900 border-slate-800 max-w-md rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100 font-light flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-400" />
+              Clear All Mock Exams?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-slate-300 font-light">
+              Are you sure you want to delete all {mocks.length} mock exam records? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowClearConfirm(false)}
+              className="border-slate-700 text-slate-300 hover:bg-slate-800 rounded-lg transition-all"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClearAllConfirm}
+              className="bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-all"
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear All Mocks - Final Confirmation */}
+      <Dialog open={showFinalConfirm} onOpenChange={setShowFinalConfirm}>
+        <DialogContent className="bg-slate-900 border-slate-800 max-w-md rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100 font-light flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-400" />
+              Final Confirmation Required
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-slate-300 font-light mb-2">
+              <strong className="font-medium text-red-400">Warning:</strong> This will permanently delete all {mocks.length} mock exam records.
+            </p>
+            <p className="text-slate-400 text-sm font-light">
+              This action cannot be restored. Are you absolutely certain you want to proceed?
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowFinalConfirm(false)
+                setShowClearConfirm(false)
+              }}
+              className="border-slate-700 text-slate-300 hover:bg-slate-800 rounded-lg transition-all"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClearAllFinal}
+              className="bg-red-600 text-white hover:bg-red-700 rounded-lg transition-all"
+            >
+              Yes, Delete All
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

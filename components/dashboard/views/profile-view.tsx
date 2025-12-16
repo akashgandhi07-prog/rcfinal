@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { Label } from "@/components/ui/label"
 import { MatteInput } from "@/components/ui/matte-input"
 import { MatteTextarea } from "@/components/ui/matte-textarea"
@@ -293,11 +294,9 @@ export function ProfileView({ viewMode, userData }: ProfileViewProps) {
                 Contact Number
               </Label>
               {isEditing ? (
-                <MatteInput
+                <PhoneInput
                   value={formData.contact_number}
-                  onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                  className="text-sm"
-                  placeholder="+44 7700 900123"
+                  onChange={(val) => setFormData({ ...formData, contact_number: val })}
                 />
               ) : (
                 <p className="text-sm text-slate-900 font-medium">
@@ -343,11 +342,9 @@ export function ProfileView({ viewMode, userData }: ProfileViewProps) {
                   Parent Phone
                 </Label>
                 {isEditing ? (
-                  <MatteInput
+                  <PhoneInput
                     value={formData.parent_phone}
-                    onChange={(e) => setFormData({ ...formData, parent_phone: e.target.value })}
-                    className="text-sm"
-                    placeholder="+44 7700 900456"
+                    onChange={(val) => setFormData({ ...formData, parent_phone: val })}
                   />
                 ) : (
                   <p className="text-sm text-slate-900 font-medium">{user.parent_phone || "—"}</p>
@@ -399,11 +396,9 @@ export function ProfileView({ viewMode, userData }: ProfileViewProps) {
                   Parent Phone
                 </Label>
                 {isEditing ? (
-                  <MatteInput
+                  <PhoneInput
                     value={formData.parent2_phone}
-                    onChange={(e) => setFormData({ ...formData, parent2_phone: e.target.value })}
-                    className="text-sm"
-                    placeholder="+44 7700 900789"
+                    onChange={(val) => setFormData({ ...formData, parent2_phone: val })}
                   />
                 ) : (
                   <p className="text-sm text-slate-900 font-medium">

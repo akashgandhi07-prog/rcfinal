@@ -112,7 +112,6 @@ export function UniversityStrategy({ viewMode }: UniversityStrategyProps) {
                   <h4 className="text-sm font-light text-slate-200">{uni.name}</h4>
                   <div className="space-y-1 text-xs text-slate-400">
                     <p>Course: {uni.courseCode}</p>
-                    <p>Entry Req: {uni.entranceReq}</p>
                     <p>UCAT Cut-off: {uni.ucatCutoff}</p>
                   </div>
                   {viewMode === "student" && shortlist.length < 4 && (
@@ -145,7 +144,6 @@ export function UniversityStrategy({ viewMode }: UniversityStrategyProps) {
                   <h4 className="text-sm font-light text-slate-200">{uni.name}</h4>
                   <div className="space-y-1 text-xs text-slate-400">
                     <p>Course: {uni.courseCode}</p>
-                    <p>Entry Req: {uni.entranceReq}</p>
                     <p>UCAT Cut-off: {uni.ucatCutoff}</p>
                   </div>
                   <div className="flex gap-2 mt-2">
@@ -193,7 +191,6 @@ export function UniversityStrategy({ viewMode }: UniversityStrategyProps) {
                   <h4 className="text-sm font-light text-slate-200">{uni.name}</h4>
                   <div className="space-y-1 text-xs text-slate-400">
                     <p>Course: {uni.courseCode}</p>
-                    <p>Entry Req: {uni.entranceReq}</p>
                     <p>UCAT Cut-off: {uni.ucatCutoff}</p>
                   </div>
                   <div className="mt-2">

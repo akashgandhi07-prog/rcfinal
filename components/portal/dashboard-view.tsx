@@ -1,13 +1,79 @@
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, Target, Calendar, Award } from "lucide-react"
+import { TrendingUp, Target, Calendar, Award, MapPin, BookOpen } from "lucide-react"
+import { CommentsFeed } from "./comments-feed"
+import { getCurrentUser, getUserById } from "@/lib/supabase/queries"
+import { useEffect, useState } from "react"
+import type { User } from "@/lib/supabase/types"
 
 interface DashboardViewProps {
-  viewMode: "student" | "parent"
+  viewMode: "student" | "parent" | "mentor"
+  studentId?: string
 }
 
-export function DashboardView({ viewMode }: DashboardViewProps) {
+export function DashboardView({ viewMode, studentId }: DashboardViewProps) {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [studentData, setStudentData] = useState<User | null>(null)
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = await getCurrentUser()
+      if (user) {
+        setCurrentUserId(user.id)
+      }
+    }
+    loadUser()
+  }, [])
+
+  useEffect(() => {
+    const loadStudentData = async () => {
+      const displayId = studentId || currentUserId
+      if (displayId) {
+        const data = await getUserById(displayId)
+        setStudentData(data)
+      }
+    }
+    loadStudentData()
+  }, [studentId, currentUserId])
+
+  const displayStudentId = studentId || currentUserId
+  
+  // Format course name
+  const courseName = studentData?.target_course 
+    ? studentData.target_course.charAt(0).toUpperCase() + studentData.target_course.slice(1)
+    : "Course"
+  
+  // Calculate entry year (assuming current year + 1 for typical application cycle)
+  const currentYear = new Date().getFullYear()
+  const entryYear = studentData?.entry_year || currentYear + 1
+  
+  // Get country from home_address or country field
+  const country = studentData?.country || "Not specified"
+
   return (
     <div className="space-y-6">
+      {/* Student Info Header */}
+      <Card className="bg-white border-slate-200 rounded-none">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              <BookOpen size={20} className="text-[#D4AF37]" strokeWidth={1.5} />
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-light">Target Course</p>
+                <p className="text-lg font-light text-slate-900">{courseName} {entryYear} Entry</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin size={20} className="text-[#D4AF37]" strokeWidth={1.5} />
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-light">Location</p>
+                <p className="text-lg font-light text-slate-900">{country}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-2 gap-6">
         <Card className="bg-white border-slate-200 rounded-none">
           <CardHeader>
@@ -84,6 +150,11 @@ export function DashboardView({ viewMode }: DashboardViewProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mentor Comments Feed */}
+      {displayStudentId && (
+        <CommentsFeed studentId={displayStudentId} />
+      )}
     </div>
   )
 }
