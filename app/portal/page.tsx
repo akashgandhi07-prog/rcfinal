@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase/client"
 import { getCurrentUser, updateUser, isFeatureEnabled, getLinkedStudents } from "@/lib/supabase/queries"
 import type { ApprovalStatus, User } from "@/lib/supabase/types"
 import { FeatureName } from "@/lib/supabase/types"
+import { logLogout } from "@/lib/utils/activity-logger"
 import type { OnboardingData } from "@/components/onboarding/onboarding-wizard"
 import { ParentStudentSelector } from "@/components/portal/parent-student-selector"
 import { getLinkedStudentsForMentor } from "@/lib/supabase/queries"
@@ -44,6 +45,7 @@ export default function PortalPage() {
     if (user) {
       // Check if user is admin
       setIsAdmin(user.role === "admin")
+      // Primary admin with full access
       setIsSuperAdmin(user.email === "akashgandhi07@gmail.com")
       if (user.role === "admin" && activeView !== "admin") {
         setActiveView("admin")
@@ -134,7 +136,7 @@ export default function PortalPage() {
         return
       }
 
-      // Auto-elevate primary admin
+      // Auto-elevate primary admin (akashgandhi07@gmail.com)
       if (currentUser.email === "akashgandhi07@gmail.com" && currentUser.role !== "admin") {
         const updated = await updateUser(currentUser.id, {
           role: "admin",
@@ -238,6 +240,11 @@ export default function PortalPage() {
 
   const handleLogout = async () => {
     try {
+      // Log logout before signing out
+      if (user?.email) {
+        await logLogout(user.email)
+      }
+      
       await supabase.auth.signOut()
       setIsAuthenticated(false)
       setUser(null)

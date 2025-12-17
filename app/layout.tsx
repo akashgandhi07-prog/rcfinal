@@ -4,6 +4,7 @@ import { Playfair_Display, Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { AuthProvider } from "@/components/providers/auth-provider"
+import { NotificationContainer } from "@/components/ui/notification"
 import "@/lib/utils/env" // Validate environment variables on startup
 
 const playfair = Playfair_Display({
@@ -19,7 +20,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "The Regent's Consultancy | Elite Admissions Strategy for UK Medical Schools",
+  title: "The Regent's Consultancy | Elite Admissions Strategy for UK Universities",
   description:
     "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors and Dentists and Qualified Veterinary Surgeons.",
   generator: "v0.app",
@@ -51,9 +52,17 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${playfair.variable} ${inter.variable} overflow-x-hidden`}>
       <body className={`font-sans antialiased overflow-x-hidden`}>
+        {/* Skip to main content link for accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[#D4AF37] focus:text-slate-950 focus:rounded-lg focus:font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37]"
+        >
+          Skip to main content
+        </a>
         <AuthProvider>
           {children}
         </AuthProvider>
+        <NotificationContainer />
         <Analytics />
       </body>
     </html>

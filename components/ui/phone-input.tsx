@@ -274,18 +274,31 @@ export function PhoneInput({
     emitChange(countryCode, next)
   }
 
+  // Get the selected country for display
+  const selectedCountry = COUNTRIES.find(c => c.code === countryCode) || defaultCountry
+
   return (
-    <div className={cn("flex gap-2 w-full", className)}>
-      <div className="flex-shrink-0">
+    <div className={cn("flex gap-1.5 sm:gap-2 w-full min-w-0", className)}>
+      <div className="flex-shrink-0 relative">
+        {/* Mobile display - shows code + flag */}
+        <div className="absolute inset-0 pointer-events-none sm:hidden flex items-center justify-center text-xs text-slate-900 whitespace-nowrap z-10 pr-5">
+          <span>{selectedCountry.code} {selectedCountry.flag}</span>
+        </div>
         <select
-          className="h-11 rounded-lg border border-slate-300 bg-white px-2 pr-7 text-sm text-slate-900 shadow-sm focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 min-w-[140px]"
+          className="h-10 rounded-lg border border-slate-300 bg-white pl-1.5 sm:pl-3 pr-6 sm:pr-10 text-xs sm:text-sm text-transparent sm:text-slate-900 focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 w-[85px] sm:w-[170px] appearance-none bg-no-repeat bg-right relative cursor-pointer hover:border-slate-400 transition-colors"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+            backgroundPosition: 'right 0.75rem center',
+            backgroundSize: '0.75rem',
+          }}
           value={countryCode}
           onChange={handleCountryChange}
           disabled={disabled}
+          title={`${selectedCountry.flag} ${selectedCountry.label} (${selectedCountry.code})`}
         >
           {COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>
-              {c.flag} {c.label} ({c.code})
+              {c.code} {c.flag} {c.label}
             </option>
           ))}
         </select>
@@ -298,7 +311,7 @@ export function PhoneInput({
         disabled={disabled}
         value={localNumber}
         onChange={handleLocalChange}
-        className="h-11 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20"
+        className="h-10 flex-1 min-w-[120px] rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 hover:border-slate-400 transition-colors"
         placeholder="Mobile number"
       />
     </div>

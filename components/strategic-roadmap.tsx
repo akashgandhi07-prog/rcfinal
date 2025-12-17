@@ -43,23 +43,23 @@ export function StrategicRoadmap() {
   ]
 
   return (
-    <section id="roadmap" className="py-32 bg-[#0B1120] relative">
-      <div className="container mx-auto px-6">
+    <section id="roadmap" className="py-16 sm:py-24 md:py-32 bg-[#0B1120] relative">
+      <div className="container mx-auto px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-20"
+          className="text-center mb-12 sm:mb-16 md:mb-20"
         >
-          <h2 className="font-serif text-4xl md:text-5xl text-white mb-4 font-light">The Strategic Roadmap</h2>
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white mb-3 sm:mb-4 font-light">The Strategic Roadmap</h2>
         </motion.div>
 
         <div className="max-w-4xl mx-auto relative">
           {/* Vertical gold line */}
-          <div className="absolute left-6 md:left-1/2 top-0 bottom-0 w-px bg-[#D4AF37] transform md:-translate-x-1/2" />
+          <div className="absolute left-4 sm:left-6 md:left-1/2 top-0 bottom-0 w-px bg-[#D4AF37] transform md:-translate-x-1/2" />
 
-          <div className="space-y-16">
+          <div className="space-y-12 sm:space-y-16">
             {stages.map((stage, index) => (
               <motion.div
                 key={stage.phase}
@@ -67,26 +67,26 @@ export function StrategicRoadmap() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.8, delay: index * 0.2 }}
-                className={`relative grid md:grid-cols-2 gap-8 items-center ${
+                className={`relative grid md:grid-cols-2 gap-6 sm:gap-8 items-center ${
                   stage.position === "left" ? "" : "md:grid-flow-dense"
                 }`}
               >
                 {/* Gold circle node on center line */}
-                <div className="absolute left-6 md:left-1/2 transform -translate-x-1/2 w-4 h-4 rounded-full bg-[#D4AF37] z-10" />
+                <div className="absolute left-4 sm:left-6 md:left-1/2 transform -translate-x-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#D4AF37] z-10" />
 
                 {/* Content - on mobile always on right side of line */}
                 <div
-                  className={`ml-12 md:ml-0 ${
+                  className={`ml-10 sm:ml-12 md:ml-0 ${
                     stage.position === "left"
-                      ? "md:col-start-1 md:text-right md:pr-12"
-                      : "md:col-start-2 md:text-left md:pl-12"
+                      ? "md:col-start-1 md:text-right md:pr-8 sm:md:pr-12"
+                      : "md:col-start-2 md:text-left md:pl-8 sm:md:pl-12"
                   }`}
                 >
                   <div className="text-xs text-[#D4AF37] uppercase tracking-wider mb-2 font-light">
                     Phase {stage.phase}
                   </div>
-                  <h3 className="font-serif text-2xl text-white mb-3 font-light">{stage.title}</h3>
-                  <p className="text-slate-300 font-light leading-relaxed">{stage.description}</p>
+                  <h3 className="font-serif text-xl sm:text-2xl text-white mb-2 sm:mb-3 font-light">{stage.title}</h3>
+                  <p className="text-sm sm:text-base text-slate-300 font-light leading-relaxed">{stage.description}</p>
                 </div>
 
                 {/* Empty space for alternating layout on desktop */}

@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { UserRole } from "@/lib/supabase/types"
 import { Eye, EyeOff, X } from "lucide-react"
+import { validatePasswordStrength } from "@/lib/utils/validation"
+import { logLogin, logLoginAttempt, logActivity } from "@/lib/utils/activity-logger"
 
 interface LoginScreenProps {
   onLogin?: () => void
@@ -38,6 +40,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [showSignupPassword, setShowSignupPassword] = useState(false)
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false)
   const [showDemoPassword, setShowDemoPassword] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState<ReturnType<typeof validatePasswordStrength> | null>(null)
   
   // Forgot password state
   const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false)
@@ -74,7 +77,17 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       })
 
       if (authError) {
-        setError(authError.message)
+        // Log failed login attempt
+        await logLoginAttempt(normalizedEmail, false)
+        
+        // Don't expose detailed error messages that could help attackers
+        if (authError.message.includes("Invalid login credentials") || authError.message.includes("Email not confirmed")) {
+          setError("Invalid email or password. Please check your credentials and try again.")
+        } else if (authError.message.includes("Too many requests")) {
+          setError("Too many login attempts. Please wait a moment and try again.")
+        } else {
+          setError("Unable to sign in. Please check your credentials and try again.")
+        }
         return
       }
 
@@ -110,6 +123,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         // Small delay to ensure session is established
         await new Promise(resolve => setTimeout(resolve, 100))
+
+        // Log successful login (both activity log and login attempts)
+        await logLogin(normalizedEmail)
+        await logLoginAttempt(normalizedEmail, true)
 
         if (onLogin) {
           onLogin()
@@ -188,6 +205,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         return
       }
 
+      // Validate password strength
+      const strength = validatePasswordStrength(password)
+      if (!strength.isValid) {
+        setError(`Password is too weak. ${strength.feedback.join(" ")}`)
+        return
+      }
+
       if (captchaAnswer.trim() !== captchaExpected) {
         setError("Captcha answer is incorrect. Please try again.")
         generateCaptcha()
@@ -208,7 +232,16 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       })
 
       if (signUpError) {
-        setError(signUpError.message)
+        // Sanitize error messages for security
+        if (signUpError.message.includes("already registered") || signUpError.message.includes("already exists")) {
+          setError("An account with this email already exists. Please sign in instead.")
+        } else if (signUpError.message.includes("Password")) {
+          setError("Password does not meet requirements. Please use a stronger password.")
+        } else if (signUpError.message.includes("email")) {
+          setError("Please enter a valid email address.")
+        } else {
+          setError("Unable to create account. Please try again or contact support.")
+        }
         return
       }
 
@@ -231,32 +264,42 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         if (insertError) {
           // Log full error details
-          console.error("Error creating user profile for signup:")
-          console.error("Error message:", insertError.message)
-          console.error("Error code:", insertError.code)
-          console.error("Error details:", insertError.details)
-          console.error("Error hint:", insertError.hint)
-          console.error("Full error object:", JSON.stringify(insertError, null, 2))
+          // Log error details server-side only (not exposed to user)
+          console.error("Error creating user profile for signup:", {
+            code: insertError.code,
+            message: insertError.message,
+            // Don't log sensitive details
+          })
           
-          // Show user-friendly error
+          // Show user-friendly error without exposing technical details
           setError(
-            `Account created but profile setup failed: ${insertError.message || "Unknown error"}. ` +
-            `Please contact support or try again. Error code: ${insertError.code || "N/A"}`
+            "Account created but profile setup failed. Please contact support for assistance."
           )
           return
         }
 
         // Success - profile created
         console.log("User profile created successfully:", insertData)
+        
+        // Log account creation
+        await logActivity('create', 'user', {
+          resourceId: data.user.id,
+          description: `New account created: ${normalizedEmail} (${signupRole})`,
+          metadata: {
+            role: signupRole,
+            email: normalizedEmail,
+          },
+        })
       }
 
       setSuccessMessage(
-        "Account created. An administrator will review and approve access shortly. You’ll be able to complete onboarding once approved."
+        "Account created. An administrator will review and approve access shortly. You'll be able to complete onboarding once approved."
       )
       setMode("login")
       setPassword("")
       setConfirmPassword("")
       setCaptchaAnswer("")
+      setPasswordStrength(null)
     } catch (err) {
       console.error("Signup error:", err)
       setError("An error occurred during signup. Please try again.")
@@ -266,8 +309,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   }
 
   const handleDemoAccess = async () => {
-    // Validate demo password
-    if (demoPassword !== "Junojuno") {
+    // Validate demo password from environment variable (fallback for development)
+    const expectedPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD || (process.env.NODE_ENV === "development" ? "demo" : "")
+    
+    if (!expectedPassword || demoPassword !== expectedPassword) {
       setDemoError("Incorrect demo password. Please try again.")
       return
     }
@@ -331,24 +376,24 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#0B1120] flex items-center justify-center px-4 py-6 sm:p-6">
-      <Card className="relative w-full max-w-md bg-white/10 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl border border-slate-700/30">
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#0B1120] flex items-center justify-center px-4 py-4 sm:py-6 sm:p-6">
+      <Card className="relative w-full max-w-md bg-white/10 backdrop-blur-xl border-slate-700/50 rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700/30">
         <button
           type="button"
           onClick={() => router.push("/")}
-          className="absolute right-3 top-3 p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          className="absolute right-3 top-3 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
           aria-label="Close"
         >
-          <X size={18} />
+          <X size={20} />
         </button>
-        <CardHeader className="text-center space-y-4 pb-6">
+        <CardHeader className="text-center space-y-4 pb-4 sm:pb-6 px-4 sm:px-6 pt-6 sm:pt-8">
           <div className="space-y-2">
-            <h1 className="text-3xl font-serif text-[#D4AF37] tracking-widest mb-2 font-light">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-serif text-[#D4AF37] tracking-widest mb-2 font-light">
               REGENT&apos;S CONSULTANCY
             </h1>
-            <p className="text-sm text-slate-300 font-light">Private Client Portal</p>
+            <p className="text-xs sm:text-sm text-slate-300 font-light">Private Client Portal</p>
           </div>
-          <div className="mt-6 flex items-center justify-center gap-3">
+          <div className="mt-4 sm:mt-6 flex items-center justify-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => {
@@ -356,7 +401,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 setError(null)
                 setSuccessMessage(null)
               }}
-              className={`px-6 py-2.5 rounded-lg font-light transition-all ${
+              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-light transition-all min-h-[44px] touch-manipulation text-sm sm:text-base ${
                 mode === "login"
                   ? "bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/20"
                   : "bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10"
@@ -372,7 +417,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 setSuccessMessage(null)
                 generateCaptcha()
               }}
-              className={`px-6 py-2.5 rounded-lg font-light transition-all ${
+              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-light transition-all min-h-[44px] touch-manipulation text-sm sm:text-base ${
                 mode === "signup"
                   ? "bg-[#D4AF37] text-slate-950 shadow-lg shadow-[#D4AF37]/20"
                   : "bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10"
@@ -382,22 +427,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
           {error && (
-            <div className="mb-4 p-4 bg-red-950/40 border border-red-800/50 rounded-lg backdrop-blur-sm">
-              <p className="text-sm text-red-300 font-light">{error}</p>
+            <div className="mb-4 p-3 sm:p-4 bg-red-950/40 border border-red-800/50 rounded-lg backdrop-blur-sm">
+              <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{error}</p>
             </div>
           )}
           {successMessage && (
-            <div className="mb-4 p-4 bg-emerald-900/30 border border-emerald-700/60 rounded-lg backdrop-blur-sm">
-              <p className="text-sm text-emerald-200 font-light">{successMessage}</p>
+            <div className="mb-4 p-3 sm:p-4 bg-emerald-900/30 border border-emerald-700/60 rounded-lg backdrop-blur-sm">
+              <p className="text-xs sm:text-sm text-emerald-200 font-light leading-relaxed">{successMessage}</p>
             </div>
           )}
 
           {mode === "login" ? (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-200 font-light text-sm">
+                <Label htmlFor="email" className="text-slate-200 font-light text-xs sm:text-sm">
                   Email Address
                 </Label>
                 <Input
@@ -406,7 +451,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                   placeholder="student@example.com"
                   required
                   disabled={isLoading}
@@ -415,13 +460,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-slate-200 font-light text-sm">
+                    <Label htmlFor="password" className="text-slate-200 font-light text-xs sm:text-sm">
                       Password
                     </Label>
                     <button
                       type="button"
                       onClick={() => setShowForgotPasswordDialog(true)}
-                      className="text-xs text-slate-400 hover:text-[#D4AF37] transition-colors font-light"
+                      className="text-xs sm:text-sm text-slate-400 hover:text-[#D4AF37] transition-colors font-light min-h-[44px] px-2 touch-manipulation"
                     >
                       Forgot?
                     </button>
@@ -433,7 +478,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                       placeholder="••••••••"
                       required
                       disabled={isLoading}
@@ -441,10 +486,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     <button
                       type="button"
                       onClick={() => setShowLoginPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
                       aria-label={showLoginPassword ? "Hide password" : "Show password"}
                     >
-                      {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                 </div>
@@ -452,7 +497,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               <div className="space-y-3 pt-2">
                 <Button
                   type="submit"
-                  className="w-full bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium rounded-lg h-11 shadow-lg shadow-[#D4AF37]/20 transition-all"
+                  className="w-full bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium rounded-lg h-12 sm:h-14 text-base shadow-lg shadow-[#D4AF37]/20 transition-all min-h-[44px] touch-manipulation"
                   disabled={isLoading}
                 >
                   {isLoading ? "Signing in..." : "Secure Login"}
@@ -461,7 +506,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   type="button"
                   onClick={handleBypass}
                   variant="outline"
-                  className="w-full border-slate-600/50 text-slate-200 hover:bg-white/10 hover:border-slate-500 rounded-lg h-11 font-light"
+                  className="w-full border-slate-600/50 text-slate-200 hover:bg-white/10 hover:border-slate-500 rounded-lg h-12 sm:h-14 font-light text-base min-h-[44px] touch-manipulation"
                   disabled={isLoading}
                 >
                   {isLoading ? "Loading..." : "Continue as Demo User"}
@@ -469,9 +514,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               </div>
             </form>
           ) : (
-            <form onSubmit={handleSignup} className="space-y-5">
+            <form onSubmit={handleSignup} className="space-y-4 sm:space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="signup-email" className="text-slate-200 font-light text-sm">
+                <Label htmlFor="signup-email" className="text-slate-200 font-light text-xs sm:text-sm">
                   Email Address
                 </Label>
                 <Input
@@ -480,7 +525,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                   placeholder="parent.or.student@example.com"
                   required
                   disabled={isLoading}
@@ -489,7 +534,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-slate-200 font-light text-sm">
+                  <Label htmlFor="signup-password" className="text-slate-200 font-light text-xs sm:text-sm">
                     Create Password
                   </Label>
                   <div className="relative">
@@ -499,24 +544,60 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     autoComplete="new-password"
                     minLength={8}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                      onChange={(e) => {
+                        setPassword(e.target.value)
+                        if (e.target.value.length > 0) {
+                          setPasswordStrength(validatePasswordStrength(e.target.value))
+                        } else {
+                          setPasswordStrength(null)
+                        }
+                      }}
+                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                       placeholder="••••••••"
                       required
                       disabled={isLoading}
+                      aria-describedby={passwordStrength ? "password-strength" : undefined}
                     />
                     <button
                       type="button"
                       onClick={() => setShowSignupPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
                       aria-label={showSignupPassword ? "Hide password" : "Show password"}
                     >
-                      {showSignupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showSignupPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
+                  {passwordStrength && password.length > 0 && (
+                    <div id="password-strength" className="space-y-1.5">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4].map((level) => (
+                          <div
+                            key={level}
+                            className={`h-1 flex-1 rounded ${
+                              level <= passwordStrength.score
+                                ? passwordStrength.score <= 1
+                                  ? "bg-red-500"
+                                  : passwordStrength.score <= 2
+                                  ? "bg-orange-500"
+                                  : passwordStrength.score <= 3
+                                  ? "bg-yellow-500"
+                                  : "bg-green-500"
+                                : "bg-slate-700"
+                            }`}
+                            aria-hidden="true"
+                          />
+                        ))}
+                      </div>
+                      {passwordStrength.feedback.length > 0 && (
+                        <p className="text-xs text-slate-400 font-light">
+                          {passwordStrength.feedback[0]}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-confirm-password" className="text-slate-200 font-light text-sm">
+                  <Label htmlFor="signup-confirm-password" className="text-slate-200 font-light text-xs sm:text-sm">
                     Confirm Password
                   </Label>
                   <div className="relative">
@@ -527,7 +608,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     minLength={8}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
+                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 transition-all"
                       placeholder="••••••••"
                       required
                       disabled={isLoading}
@@ -535,17 +616,17 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     <button
                       type="button"
                       onClick={() => setShowSignupConfirmPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                      className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
                       aria-label={showSignupConfirmPassword ? "Hide password" : "Show password"}
                     >
-                      {showSignupConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showSignupConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-slate-200 font-light text-sm">
+                <Label className="text-slate-200 font-light text-xs sm:text-sm">
                   Account Type
                 </Label>
                 <Select
@@ -553,7 +634,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   onValueChange={(value) => setSignupRole(value as UserRole)}
                   disabled={isLoading}
                 >
-                  <SelectTrigger className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20">
+                  <SelectTrigger className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white rounded-lg h-11 sm:h-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 min-h-[44px]">
                     <SelectValue placeholder="Select account type" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700 text-slate-100">
@@ -562,25 +643,25 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     <SelectItem value="mentor">Mentor</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-slate-400 font-light">
+                <p className="text-xs sm:text-sm text-slate-400 font-light leading-relaxed">
                   Guardians can later be linked to one or more students by your Regent&apos;s consultant.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-captcha" className="text-slate-200 font-light text-sm">
+                <Label htmlFor="signup-captcha" className="text-slate-200 font-light text-xs sm:text-sm">
                   Human Check
                 </Label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <div className="flex-1">
-                    <div className="text-xs text-slate-300 mb-1 font-light">{captchaQuestion}</div>
+                    <div className="text-xs sm:text-sm text-slate-300 mb-1 font-light">{captchaQuestion}</div>
                     <Input
                       id="signup-captcha"
                       type="text"
                     autoComplete="off"
                       value={captchaAnswer}
                       onChange={(e) => setCaptchaAnswer(e.target.value)}
-                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-10 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                      className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-10 sm:h-11 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
                       placeholder="Enter your answer"
                       required
                       disabled={isLoading}
@@ -590,7 +671,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     type="button"
                     variant="outline"
                     onClick={generateCaptcha}
-                    className="h-10 border-slate-600/50 text-slate-200 hover:bg-white/10"
+                    className="h-10 sm:h-11 min-h-[44px] border-slate-600/50 text-slate-200 hover:bg-white/10 touch-manipulation"
                     disabled={isLoading}
                   >
                     Refresh
@@ -601,12 +682,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               <div className="space-y-3 pt-2">
                 <Button
                   type="submit"
-                  className="w-full bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium rounded-lg h-11 shadow-lg shadow-[#D4AF37]/20 transition-all"
+                  className="w-full bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium rounded-lg h-12 sm:h-14 text-base shadow-lg shadow-[#D4AF37]/20 transition-all min-h-[44px] touch-manipulation"
                   disabled={isLoading}
                 >
                   {isLoading ? "Creating account..." : "Request Access"}
                 </Button>
-                <p className="text-[11px] text-slate-400 text-center font-light">
+                <p className="text-[10px] sm:text-[11px] text-slate-400 text-center font-light leading-relaxed px-2">
                   Your request will be reviewed by The Regent&apos;s Consultancy. Once approved, you&apos;ll be invited
                   to complete a detailed onboarding questionnaire for your child&apos;s application.
                 </p>
@@ -618,23 +699,23 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
       {/* Demo Password Dialog */}
       <Dialog open={showDemoDialog} onOpenChange={setShowDemoDialog}>
-        <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white">
+        <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[#D4AF37] font-light text-xl">
+            <DialogTitle className="text-[#D4AF37] font-light text-lg sm:text-xl">
               Demo Access
             </DialogTitle>
-            <DialogDescription className="text-slate-300 font-light">
+            <DialogDescription className="text-slate-300 font-light text-sm">
               Please enter the demo password to continue.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {demoError && (
               <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
-                <p className="text-sm text-red-300 font-light">{demoError}</p>
+                <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{demoError}</p>
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="demo-password" className="text-slate-200 font-light text-sm">
+              <Label htmlFor="demo-password" className="text-slate-200 font-light text-xs sm:text-sm">
                 Demo Password
               </Label>
               <div className="relative">
@@ -652,7 +733,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                       handleDemoAccess()
                     }
                   }}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 pr-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
                   placeholder="Enter demo password"
                   autoFocus
                   disabled={isLoading}
@@ -660,15 +741,15 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 <button
                   type="button"
                   onClick={() => setShowDemoPassword((prev) => !prev)}
-                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
                   aria-label={showDemoPassword ? "Hide password" : "Show password"}
                 >
-                  {showDemoPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showDemoPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
               type="button"
               variant="outline"
@@ -677,7 +758,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 setDemoPassword("")
                 setDemoError(null)
               }}
-              className="border-slate-600/50 text-slate-200 hover:bg-white/10"
+              className="border-slate-600/50 text-slate-200 hover:bg-white/10 w-full sm:w-auto min-h-[44px] touch-manipulation"
               disabled={isLoading}
             >
               Cancel
@@ -685,7 +766,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <Button
               type="button"
               onClick={handleDemoAccess}
-              className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium"
+              className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium w-full sm:w-auto min-h-[44px] touch-manipulation"
               disabled={isLoading}
             >
               {isLoading ? "Accessing..." : "Continue"}
@@ -696,19 +777,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
       {/* Forgot Password Dialog */}
       <Dialog open={showForgotPasswordDialog} onOpenChange={setShowForgotPasswordDialog}>
-        <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white">
+        <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[#D4AF37] font-light text-xl">
+            <DialogTitle className="text-[#D4AF37] font-light text-lg sm:text-xl">
               Reset Password
             </DialogTitle>
-            <DialogDescription className="text-slate-300 font-light">
+            <DialogDescription className="text-slate-300 font-light text-sm">
               Enter your email address and we&apos;ll send you a link to reset your password.
             </DialogDescription>
           </DialogHeader>
           {forgotPasswordSuccess ? (
             <div className="space-y-4 py-4">
-              <div className="p-4 bg-emerald-900/30 border border-emerald-700/60 rounded-lg">
-                <p className="text-sm text-emerald-200 font-light">
+              <div className="p-3 sm:p-4 bg-emerald-900/30 border border-emerald-700/60 rounded-lg">
+                <p className="text-xs sm:text-sm text-emerald-200 font-light leading-relaxed">
                   Password reset email sent! Please check your inbox and follow the instructions to reset your password.
                 </p>
               </div>
@@ -720,7 +801,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     setForgotPasswordSuccess(false)
                     setForgotPasswordEmail("")
                   }}
-                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium w-full"
+                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium w-full min-h-[44px] touch-manipulation"
                 >
                   Close
                 </Button>
@@ -730,11 +811,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             <form onSubmit={handleForgotPassword} className="space-y-4 py-4">
               {error && (
                 <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
-                  <p className="text-sm text-red-300 font-light">{error}</p>
+                  <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{error}</p>
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="forgot-password-email" className="text-slate-200 font-light text-sm">
+                <Label htmlFor="forgot-password-email" className="text-slate-200 font-light text-xs sm:text-sm">
                   Email Address
                 </Label>
                 <Input
@@ -743,14 +824,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   autoComplete="email"
                   value={forgotPasswordEmail}
                   onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
                   placeholder="your.email@example.com"
                   required
                   disabled={forgotPasswordLoading}
                   autoFocus
                 />
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -760,14 +841,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     setError(null)
                     setForgotPasswordSuccess(false)
                   }}
-                  className="border-slate-600/50 text-slate-200 hover:bg-white/10"
+                  className="border-slate-600/50 text-slate-200 hover:bg-white/10 w-full sm:w-auto min-h-[44px] touch-manipulation"
                   disabled={forgotPasswordLoading}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium"
+                  className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium w-full sm:w-auto min-h-[44px] touch-manipulation"
                   disabled={forgotPasswordLoading || !forgotPasswordEmail}
                 >
                   {forgotPasswordLoading ? "Sending..." : "Send Reset Link"}

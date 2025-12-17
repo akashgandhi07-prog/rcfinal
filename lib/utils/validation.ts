@@ -63,5 +63,50 @@ export function validateSJTBand(band: string | null | undefined): boolean {
   return ["Band 1", "Band 2", "Band 3", "Band 4"].includes(band)
 }
 
+export interface PasswordStrength {
+  score: 0 | 1 | 2 | 3 | 4 // 0 = very weak, 4 = very strong
+  feedback: string[]
+  isValid: boolean
+}
+
+export function validatePasswordStrength(password: string): PasswordStrength {
+  const feedback: string[] = []
+  let score = 0
+
+  if (password.length < 8) {
+    feedback.push("Password must be at least 8 characters long")
+    return { score: 0, feedback, isValid: false }
+  }
+
+  // Length checks
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+
+  // Character variety checks
+  const hasLowercase = /[a-z]/.test(password)
+  const hasUppercase = /[A-Z]/.test(password)
+  const hasNumbers = /\d/.test(password)
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+
+  if (hasLowercase) score++
+  if (hasUppercase) score++
+  if (hasNumbers) score++
+  if (hasSpecial) score++
+
+  // Cap at 4
+  score = Math.min(score, 4) as 0 | 1 | 2 | 3 | 4
+
+  // Provide feedback
+  if (!hasLowercase) feedback.push("Add lowercase letters")
+  if (!hasUppercase) feedback.push("Add uppercase letters")
+  if (!hasNumbers) feedback.push("Add numbers")
+  if (!hasSpecial) feedback.push("Add special characters")
+
+  const isValid = score >= 2 && password.length >= 8
+
+  return { score, feedback, isValid }
+}
+
+
 
 

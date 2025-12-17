@@ -11,7 +11,10 @@ export default function PortalError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error("Portal error:", error)
+    // Log error to error reporting service (server-side only, not exposed to user)
+    if (typeof window === "undefined" || process.env.NODE_ENV === "development") {
+      console.error("Portal error:", error)
+    }
   }, [error])
 
   return (
@@ -40,6 +43,7 @@ export default function PortalError({
     </div>
   )
 }
+
 
 
 

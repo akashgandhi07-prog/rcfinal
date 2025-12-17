@@ -4,15 +4,19 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, Plus, Trash2, Edit, UserPlus, Users, Network } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { getAllStudents, createParentStudentLink, deleteParentStudentLink, getLinkedStudents, createMentorStudentLink, deleteMentorStudentLink, updateUser, getAllUserRelationships, getMentorsForStudent, getLinkedStudentsForMentor } from "@/lib/supabase/queries"
+import { getAllStudents, createParentStudentLink, deleteParentStudentLink, getLinkedStudents, createMentorStudentLink, deleteMentorStudentLink, updateUser, getAllUserRelationships, getMentorsForStudent, getLinkedStudentsForMentor, getCurrentUser } from "@/lib/supabase/queries"
 import { supabase } from "@/lib/supabase/client"
-import type { ApprovalStatus, User, UserRole, TargetCourse } from "@/lib/supabase/types"
+import type { ApprovalStatus, User, UserRole, TargetCourse, OnboardingStatus, FeeStatus } from "@/lib/supabase/types"
+import { showNotification } from "@/components/ui/notification"
+import { ActivityLogViewer } from "@/components/portal/activity-log-viewer"
+import { logActivity, logUpdate, logCreate, logDelete, logLogin } from "@/lib/utils/activity-logger"
 
 interface AdminViewProps {
   onImpersonate: (studentId: string) => void
@@ -26,6 +30,7 @@ interface UserRelationship {
 
 export function AdminView({ onImpersonate }: AdminViewProps) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [students, setStudents] = useState<User[]>([])
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [relationships, setRelationships] = useState<UserRelationship[]>([])
@@ -38,20 +43,32 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
   const [showMentorLinkDialog, setShowMentorLinkDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [activeTab, setActiveTab] = useState<"users" | "relationships">("users")
+  const [activeTab, setActiveTab] = useState<"users" | "relationships" | "activity-logs">("activity-logs")
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null)
+  const [confirmMessage, setConfirmMessage] = useState("")
 
   useEffect(() => {
-    const checkSuperAdmin = async () => {
+    const checkAdmin = async () => {
       try {
-        const { data } = await supabase.auth.getUser()
-        const email = data.user?.email || ""
-        setIsSuperAdmin(email === "akashgandhi07@gmail.com")
+        const user = await getCurrentUser()
+        if (user) {
+          setCurrentUser(user)
+          // Verify user is actually an admin
+          if (user.role !== "admin") {
+            showNotification("You do not have permission to access this page.", "error")
+            return
+          }
+          const email = user.email || ""
+          // Primary admin with full access
+          setIsSuperAdmin(email === "akashgandhi07@gmail.com")
+        }
       } catch {
         setIsSuperAdmin(false)
       }
     }
 
-    checkSuperAdmin()
+    checkAdmin()
     loadData()
   }, [])
 
@@ -76,73 +93,155 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
     }
   }
 
+  const verifyAdmin = (): boolean => {
+    if (!currentUser || currentUser.role !== "admin") {
+      showNotification("You do not have permission to perform this action.", "error")
+      return false
+    }
+    return true
+  }
+
   const handleLinkParent = async () => {
+    if (!verifyAdmin()) return
     if (!selectedStudent || !selectedParent) return
 
     try {
       await createParentStudentLink(selectedParent, selectedStudent.id)
+      
+      // Log the link creation
+      await logActivity('link', 'parent_student_link', {
+        resourceId: selectedStudent.id,
+        description: `Admin linked parent ${selectedParent} to student ${selectedStudent.email}`,
+        metadata: {
+          parent_id: selectedParent,
+          student_id: selectedStudent.id,
+          student_email: selectedStudent.email,
+        },
+      })
+
       await loadData()
       setShowLinkDialog(false)
       setSelectedStudent(null)
       setSelectedParent("")
-      alert("Parent linked successfully!")
+      showNotification("Parent linked successfully!", "success")
     } catch (error) {
       console.error("Error linking parent:", error)
-      alert("Failed to link parent. Please try again.")
+      showNotification("Failed to link parent. Please try again.", "error")
     }
   }
 
   const handleUnlinkParent = async (parentId: string, studentId: string) => {
-    if (!confirm("Are you sure you want to unlink this parent?")) return
+    if (!verifyAdmin()) return
+    
+    setConfirmMessage("Are you sure you want to unlink this parent?")
+    setConfirmAction(async () => {
+      try {
+        await deleteParentStudentLink(parentId, studentId)
+        
+        // Log the unlink
+        await logActivity('unlink', 'parent_student_link', {
+          resourceId: studentId,
+          description: `Admin unlinked parent ${parentId} from student ${studentId}`,
+          metadata: {
+            parent_id: parentId,
+            student_id: studentId,
+          },
+        })
 
-    try {
-      await deleteParentStudentLink(parentId, studentId)
-      await loadData()
-      alert("Parent unlinked successfully!")
-    } catch (error) {
-      console.error("Error unlinking parent:", error)
-      alert("Failed to unlink parent. Please try again.")
-    }
+        await loadData()
+        showNotification("Parent unlinked successfully!", "success")
+        setShowConfirmDialog(false)
+      } catch (error) {
+        console.error("Error unlinking parent:", error)
+        showNotification("Failed to unlink parent. Please try again.", "error")
+        setShowConfirmDialog(false)
+      }
+    })
+    setShowConfirmDialog(true)
   }
 
   const handleLinkMentor = async () => {
+    if (!verifyAdmin()) return
     if (!selectedStudent || !selectedMentor) return
 
     try {
       await createMentorStudentLink(selectedMentor, selectedStudent.id)
+      
+      // Log the link creation
+      await logActivity('link', 'mentor_student_link', {
+        resourceId: selectedStudent.id,
+        description: `Admin linked mentor ${selectedMentor} to student ${selectedStudent.email}`,
+        metadata: {
+          mentor_id: selectedMentor,
+          student_id: selectedStudent.id,
+          student_email: selectedStudent.email,
+        },
+      })
+
       await loadData()
       setShowMentorLinkDialog(false)
       setSelectedStudent(null)
       setSelectedMentor("")
-      alert("Mentor linked successfully!")
+      showNotification("Mentor linked successfully!", "success")
     } catch (error) {
       console.error("Error linking mentor:", error)
-      alert("Failed to link mentor. Please try again.")
+      showNotification("Failed to link mentor. Please try again.", "error")
     }
   }
 
   const handleEditUser = async (updates: Partial<User>) => {
+    if (!verifyAdmin()) return
     if (!editingUser) return
 
     try {
+      // Track changes for logging
+      const changes: Record<string, { old: unknown; new: unknown }> = {}
+      Object.keys(updates).forEach((key) => {
+        const typedKey = key as keyof User
+        if (editingUser[typedKey] !== updates[typedKey as keyof typeof updates]) {
+          changes[key] = {
+            old: editingUser[typedKey],
+            new: updates[typedKey as keyof typeof updates],
+          }
+        }
+      })
+
       await updateUser(editingUser.id, updates)
+      
+      // Log the update
+      await logUpdate('user', editingUser.id, changes, `Admin updated user: ${editingUser.email}. Changed fields: ${Object.keys(changes).join(', ')}`)
+
       await loadData()
       setShowEditDialog(false)
       setEditingUser(null)
-      alert("User updated successfully!")
+      showNotification("User updated successfully!", "success")
     } catch (error) {
       console.error("Error updating user:", error)
-      alert("Failed to update user. Please try again.")
+      showNotification("Failed to update user. Please try again.", "error")
     }
   }
 
   const handleQuickUpdate = async (userId: string, updates: Partial<User>) => {
+    if (!verifyAdmin()) return
+    
     try {
+      const user = allUsers.find(u => u.id === userId)
       await updateUser(userId, updates)
+      
+      // Log quick update
+      await logActivity('update', 'user', {
+        resourceId: userId,
+        description: `Admin quick-updated user: ${user?.email || userId}`,
+        metadata: {
+          changes: Object.keys(updates),
+        },
+      })
+
       await loadData()
+      showNotification("User updated successfully!", "success")
     } catch (error) {
       console.error("Error quick-updating user:", error)
-      alert("Failed to update user. Please try again.")
+      showNotification("Failed to update user. Please try again.", "error")
     }
   }
 
@@ -199,7 +298,11 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
               country: "United Kingdom",
               fee_status: "home",
             })
-            alert(`Demo account profile updated: ${email}\n\nIMPORTANT: You need to create the auth user manually:\n1. Go to Supabase Dashboard > Authentication > Users\n2. Click "Add User"\n3. Email: ${email}\n4. Password: Demo123!\n5. Auto Confirm: ON`)
+            showNotification(
+              `Demo account profile updated: ${email}. You need to create the auth user manually in Supabase Dashboard.`,
+              "info",
+              10000
+            )
             await loadData()
             return
           }
@@ -207,11 +310,22 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
         throw insertError
       }
 
-      alert(`Demo account profile created: ${email}\n\nIMPORTANT: You need to create the auth user manually:\n1. Go to Supabase Dashboard > Authentication > Users\n2. Click "Add User"\n3. Email: ${email}\n4. Password: Demo123!\n5. Auto Confirm: ON\n\nOr use the SQL script in supabase/create-demo-accounts.sql`)
+      // Log demo account creation
+      await logCreate('user', userId, `Admin created demo account: ${email} (${role})`)
+
+      showNotification(
+        `Demo account profile created: ${email}. Create the auth user manually in Supabase Dashboard or use the SQL script.`,
+        "success",
+        10000
+      )
       await loadData()
     } catch (error) {
       console.error("Error creating demo account:", error)
-      alert(`Failed to create demo account: ${error instanceof Error ? error.message : "Unknown error"}\n\nYou can create demo accounts using the SQL script in supabase/create-demo-accounts.sql`)
+      showNotification(
+        `Failed to create demo account: ${error instanceof Error ? error.message : "Unknown error"}. You can create demo accounts using the SQL script.`,
+        "error",
+        8000
+      )
     } finally {
       setCreatingDemo(false)
       setShowCreateDemoDialog(false)
@@ -268,7 +382,7 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "users" | "relationships")} className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "users" | "relationships" | "activity-logs")} className="w-full">
         <TabsList className="bg-slate-100 rounded-lg p-1">
           <TabsTrigger value="relationships" className="rounded-md">
             <Network size={16} className="mr-2" />
@@ -277,6 +391,10 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
           <TabsTrigger value="users" className="rounded-md">
             <Users size={16} className="mr-2" />
             All Users
+          </TabsTrigger>
+          <TabsTrigger value="activity-logs" className="rounded-md">
+            <Eye size={16} className="mr-2" />
+            Activity Logs
           </TabsTrigger>
           {isSuperAdmin && (
             <TabsTrigger value="super" className="rounded-md">
@@ -349,11 +467,33 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={async () => {
-                                      if (confirm(`Unlink ${parent.full_name || parent.email} from ${rel.student.full_name || rel.student.email}?`)) {
-                                        await deleteParentStudentLink(parent.id, rel.student.id)
-                                        await loadData()
-                                      }
+                                    onClick={() => {
+                                      if (!verifyAdmin()) return
+                                      setConfirmMessage(`Unlink ${parent.full_name || parent.email} from ${rel.student.full_name || rel.student.email}?`)
+                                      setConfirmAction(async () => {
+                                        try {
+                                          await deleteParentStudentLink(parent.id, rel.student.id)
+                                          
+                                          // Log the unlink
+                                          await logActivity('unlink', 'parent_student_link', {
+                                            resourceId: rel.student.id,
+                                            description: `Admin unlinked parent ${parent.email} from student ${rel.student.email}`,
+                                            metadata: {
+                                              parent_id: parent.id,
+                                              student_id: rel.student.id,
+                                            },
+                                          })
+
+                                          await loadData()
+                                          showNotification("Parent unlinked successfully!", "success")
+                                          setShowConfirmDialog(false)
+                                        } catch (error) {
+                                          console.error("Error unlinking parent:", error)
+                                          showNotification("Failed to unlink parent. Please try again.", "error")
+                                          setShowConfirmDialog(false)
+                                        }
+                                      })
+                                      setShowConfirmDialog(true)
                                     }}
                                     className="border-red-300 text-red-700 hover:bg-red-50 rounded-lg text-xs h-7"
                                   >
@@ -398,11 +538,33 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={async () => {
-                                      if (confirm(`Unlink ${mentor.full_name || mentor.email} from ${rel.student.full_name || rel.student.email}?`)) {
-                                        await deleteMentorStudentLink(mentor.id, rel.student.id)
-                                        await loadData()
-                                      }
+                                    onClick={() => {
+                                      if (!verifyAdmin()) return
+                                      setConfirmMessage(`Unlink ${mentor.full_name || mentor.email} from ${rel.student.full_name || rel.student.email}?`)
+                                      setConfirmAction(async () => {
+                                        try {
+                                          await deleteMentorStudentLink(mentor.id, rel.student.id)
+                                          
+                                          // Log the unlink
+                                          await logActivity('unlink', 'mentor_student_link', {
+                                            resourceId: rel.student.id,
+                                            description: `Admin unlinked mentor ${mentor.email} from student ${rel.student.email}`,
+                                            metadata: {
+                                              mentor_id: mentor.id,
+                                              student_id: rel.student.id,
+                                            },
+                                          })
+
+                                          await loadData()
+                                          showNotification("Mentor unlinked successfully!", "success")
+                                          setShowConfirmDialog(false)
+                                        } catch (error) {
+                                          console.error("Error unlinking mentor:", error)
+                                          showNotification("Failed to unlink mentor. Please try again.", "error")
+                                          setShowConfirmDialog(false)
+                                        }
+                                      })
+                                      setShowConfirmDialog(true)
                                     }}
                                     className="border-red-300 text-red-700 hover:bg-red-50 rounded-lg text-xs h-7"
                                   >
@@ -653,6 +815,10 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
 
         </TabsContent>
 
+        <TabsContent value="activity-logs" className="space-y-6 mt-6">
+          <ActivityLogViewer />
+        </TabsContent>
+
         {isSuperAdmin && (
           <TabsContent value="super" className="space-y-6 mt-6">
             <Card className="bg-white border-slate-200 rounded-lg">
@@ -856,6 +1022,41 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="bg-white border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 font-light">Confirm Action</DialogTitle>
+            <DialogDescription className="text-slate-600 font-light">
+              {confirmMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowConfirmDialog(false)
+                setConfirmAction(null)
+                setConfirmMessage("")
+              }}
+              className="border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-light"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (confirmAction) {
+                  confirmAction()
+                }
+              }}
+              className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light"
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -875,7 +1076,7 @@ function CreateDemoAccountForm({
 
   const handleCreate = () => {
     if (!name.trim()) {
-      alert("Please enter a name")
+      showNotification("Please enter a name", "warning")
       return
     }
 
@@ -952,70 +1153,359 @@ function CreateDemoAccountForm({
 }
 
 function EditUserForm({ user, onSave, onCancel }: { user: User; onSave: (updates: Partial<User>) => void; onCancel: () => void }) {
-  const [role, setRole] = useState(user.role)
-  const [targetCourse, setTargetCourse] = useState(user.target_course || "")
-  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus | "">(user.approval_status || "approved")
+  const [formData, setFormData] = useState({
+    role: user.role,
+    full_name: user.full_name || "",
+    email: user.email,
+    target_course: user.target_course || "",
+    entry_year: user.entry_year?.toString() || "",
+    country: user.country || "",
+    fee_status: user.fee_status || "",
+    onboarding_status: user.onboarding_status,
+    approval_status: user.approval_status,
+    date_of_birth: user.date_of_birth || "",
+    home_address: user.home_address || "",
+    contact_number: user.contact_number || "",
+    parent_name: user.parent_name || "",
+    parent_phone: user.parent_phone || "",
+    parent_email: user.parent_email || "",
+    parent2_name: user.parent2_name || "",
+    parent2_phone: user.parent2_phone || "",
+    parent2_email: user.parent2_email || "",
+    school_name: user.school_name || "",
+    gcse_summary: user.gcse_summary || "",
+    a_level_predictions: user.a_level_predictions || "",
+    consultant_assigned: user.consultant_assigned || "",
+    contract_status: user.contract_status || "",
+    client_id: user.client_id || "",
+  })
 
   const handleSave = () => {
     onSave({
-      role: role as UserRole,
-      target_course: targetCourse ? (targetCourse as TargetCourse) : null,
-      approval_status: (approvalStatus || "approved") as ApprovalStatus,
+      role: formData.role as UserRole,
+      full_name: formData.full_name || null,
+      target_course: formData.target_course ? (formData.target_course as TargetCourse) : null,
+      entry_year: formData.entry_year ? parseInt(formData.entry_year) : null,
+      country: formData.country || null,
+      fee_status: formData.fee_status ? (formData.fee_status as FeeStatus) : null,
+      onboarding_status: formData.onboarding_status,
+      approval_status: formData.approval_status,
+      date_of_birth: formData.date_of_birth || null,
+      home_address: formData.home_address || null,
+      contact_number: formData.contact_number || null,
+      parent_name: formData.parent_name || null,
+      parent_phone: formData.parent_phone || null,
+      parent_email: formData.parent_email || null,
+      parent2_name: formData.parent2_name || null,
+      parent2_phone: formData.parent2_phone || null,
+      parent2_email: formData.parent2_email || null,
+      school_name: formData.school_name || null,
+      gcse_summary: formData.gcse_summary || null,
+      a_level_predictions: formData.a_level_predictions || null,
+      consultant_assigned: formData.consultant_assigned || null,
+      contract_status: formData.contract_status || null,
+      client_id: formData.client_id || null,
     })
   }
 
   return (
-    <div className="space-y-4 py-4">
-      <div>
-        <Label className="text-sm text-slate-700 font-light mb-2 block">Role</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-          <SelectTrigger className="rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-lg">
-            <SelectItem value="student">Student</SelectItem>
-            <SelectItem value="parent">Parent</SelectItem>
-            <SelectItem value="mentor">Mentor</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="space-y-6 py-4 max-h-[80vh] overflow-y-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Basic Information */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Basic Information</h3>
+          
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Email</Label>
+            <Input value={formData.email} disabled className="bg-slate-100" />
+            <p className="text-xs text-slate-500 mt-1">Email cannot be changed</p>
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Role</Label>
+            <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value as UserRole})}>
+              <SelectTrigger className="rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="parent">Parent</SelectItem>
+                <SelectItem value="mentor">Mentor</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Full Name</Label>
+            <Input
+              value={formData.full_name}
+              onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Date of Birth</Label>
+            <Input
+              type="date"
+              value={formData.date_of_birth}
+              onChange={(e) => setFormData({...formData, date_of_birth: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Contact Number</Label>
+            <Input
+              value={formData.contact_number}
+              onChange={(e) => setFormData({...formData, contact_number: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Home Address</Label>
+            <Textarea
+              value={formData.home_address}
+              onChange={(e) => setFormData({...formData, home_address: e.target.value})}
+              className="rounded-lg min-h-20"
+            />
+          </div>
+        </div>
+
+        {/* Academic & Course Information */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Academic & Course</h3>
+          
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Target Course</Label>
+            <Select value={formData.target_course} onValueChange={(value) => setFormData({...formData, target_course: value})}>
+              <SelectTrigger className="rounded-lg">
+                <SelectValue placeholder="Select course" />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                <SelectItem value="">None</SelectItem>
+                <SelectItem value="medicine">Medicine</SelectItem>
+                <SelectItem value="dentistry">Dentistry</SelectItem>
+                <SelectItem value="veterinary">Veterinary</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Entry Year</Label>
+            <Input
+              type="number"
+              value={formData.entry_year}
+              onChange={(e) => setFormData({...formData, entry_year: e.target.value})}
+              className="rounded-lg"
+              placeholder="2025"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Country</Label>
+            <Input
+              value={formData.country}
+              onChange={(e) => setFormData({...formData, country: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Fee Status</Label>
+            <Select value={formData.fee_status} onValueChange={(value) => setFormData({...formData, fee_status: value})}>
+              <SelectTrigger className="rounded-lg">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                <SelectItem value="">None</SelectItem>
+                <SelectItem value="home">Home</SelectItem>
+                <SelectItem value="international">International</SelectItem>
+                <SelectItem value="unsure">Unsure</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">School Name</Label>
+            <Input
+              value={formData.school_name}
+              onChange={(e) => setFormData({...formData, school_name: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">GCSE Summary</Label>
+            <Textarea
+              value={formData.gcse_summary}
+              onChange={(e) => setFormData({...formData, gcse_summary: e.target.value})}
+              className="rounded-lg min-h-20"
+              placeholder="Enter GCSE results..."
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">A-Level Predictions</Label>
+            <Textarea
+              value={formData.a_level_predictions}
+              onChange={(e) => setFormData({...formData, a_level_predictions: e.target.value})}
+              className="rounded-lg min-h-20"
+              placeholder="Enter A-Level predictions..."
+            />
+          </div>
+        </div>
       </div>
-      <div>
-        <Label className="text-sm text-slate-700 font-light mb-2 block">Target Course</Label>
-        <Select value={targetCourse} onValueChange={setTargetCourse}>
-          <SelectTrigger className="rounded-lg">
-            <SelectValue placeholder="Select course" />
-          </SelectTrigger>
-          <SelectContent className="rounded-lg">
-            <SelectItem value="">None</SelectItem>
-            <SelectItem value="medicine">Medicine</SelectItem>
-            <SelectItem value="dentistry">Dentistry</SelectItem>
-            <SelectItem value="veterinary">Veterinary</SelectItem>
-          </SelectContent>
-        </Select>
+
+      {/* Parent Information */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Parent 1 Information</h3>
+          
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Parent Name</Label>
+            <Input
+              value={formData.parent_name}
+              onChange={(e) => setFormData({...formData, parent_name: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Parent Phone</Label>
+            <Input
+              value={formData.parent_phone}
+              onChange={(e) => setFormData({...formData, parent_phone: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Parent Email</Label>
+            <Input
+              type="email"
+              value={formData.parent_email}
+              onChange={(e) => setFormData({...formData, parent_email: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Parent 2 Information</h3>
+          
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Parent 2 Name</Label>
+            <Input
+              value={formData.parent2_name}
+              onChange={(e) => setFormData({...formData, parent2_name: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Parent 2 Phone</Label>
+            <Input
+              value={formData.parent2_phone}
+              onChange={(e) => setFormData({...formData, parent2_phone: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Parent 2 Email</Label>
+            <Input
+              type="email"
+              value={formData.parent2_email}
+              onChange={(e) => setFormData({...formData, parent2_email: e.target.value})}
+              className="rounded-lg"
+            />
+          </div>
+        </div>
       </div>
-      <div>
-        <Label className="text-sm text-slate-700 font-light mb-2 block">Approval Status</Label>
-        <Select
-          value={approvalStatus}
-          onValueChange={(value) => setApprovalStatus(value as ApprovalStatus)}
-        >
-          <SelectTrigger className="rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-lg">
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
+
+      {/* Admin & Status Fields */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Status & Approval</h3>
+          
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Approval Status</Label>
+            <Select
+              value={formData.approval_status}
+              onValueChange={(value) => setFormData({...formData, approval_status: value as ApprovalStatus})}
+            >
+              <SelectTrigger className="rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Onboarding Status</Label>
+            <Select
+              value={formData.onboarding_status}
+              onValueChange={(value) => setFormData({...formData, onboarding_status: value as OnboardingStatus})}
+            >
+              <SelectTrigger className="rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="complete">Complete</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-slate-900 border-b pb-2">Consultant & Contract</h3>
+          
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Consultant Assigned</Label>
+            <Input
+              value={formData.consultant_assigned}
+              onChange={(e) => setFormData({...formData, consultant_assigned: e.target.value})}
+              className="rounded-lg"
+              placeholder="Consultant name"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Contract Status</Label>
+            <Input
+              value={formData.contract_status}
+              onChange={(e) => setFormData({...formData, contract_status: e.target.value})}
+              className="rounded-lg"
+              placeholder="Active, Inactive, etc."
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm text-slate-700 font-light mb-2 block">Client ID</Label>
+            <Input
+              value={formData.client_id}
+              onChange={(e) => setFormData({...formData, client_id: e.target.value})}
+              className="rounded-lg"
+              placeholder="Client identifier"
+            />
+          </div>
+        </div>
       </div>
-      <div className="flex gap-2 justify-end pt-4">
+
+      <div className="flex gap-2 justify-end pt-4 border-t">
         <Button variant="outline" onClick={onCancel} className="rounded-lg">
           Cancel
         </Button>
         <Button onClick={handleSave} className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg">
-          Save Changes
+          Save All Changes
         </Button>
       </div>
     </div>

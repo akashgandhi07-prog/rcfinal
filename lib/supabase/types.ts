@@ -38,6 +38,7 @@ export interface User {
 
 // Type-safe update interface
 export interface UserUpdate {
+  role?: UserRole
   full_name?: string | null
   date_of_birth?: string | null
   home_address?: string | null
@@ -147,4 +148,27 @@ export enum FeatureName {
   UCAT_TRACKER = 'ucat_tracker',
   PORTFOLIO_BUILDER = 'portfolio_builder',
   UNIVERSITY_STRATEGY = 'university_strategy',
+}
+
+// Activity Log
+export interface ActivityLog {
+  id: string
+  user_id: string | null
+  user_email: string | null
+  action_type: string
+  resource_type: string
+  resource_id: string | null
+  description: string | null
+  metadata: Record<string, unknown> | null
+  ip_address: string | null
+  user_agent: string | null
+  created_at: string
+}
+
+export interface LoginAttempt {
+  id: string
+  email: string
+  ip_address: string | null
+  success: boolean
+  created_at: string
 }

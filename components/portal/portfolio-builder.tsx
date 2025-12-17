@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Plus, CheckCircle2, Briefcase, Heart, BookOpen, Dumbbell } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,15 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MentorComments } from "./mentor-comments"
-import { getCurrentUser } from "@/lib/supabase/queries"
+import { getCurrentUser, getPortfolioActivities, createPortfolioActivity, updatePortfolioActivity, deletePortfolioActivity } from "@/lib/supabase/queries"
 import type { User } from "@/lib/supabase/types"
+import type { PortfolioActivity as DBPortfolioActivity } from "@/lib/supabase/types"
+import { useUndoRedo } from "@/lib/hooks/use-undo-redo"
+import { useAutoSave } from "@/lib/hooks/use-auto-save"
+import { SaveStatusIndicator } from "@/components/ui/save-status"
+import { UndoRedoButtons } from "@/components/ui/undo-redo-buttons"
+import { exportToCSV, exportToJSON } from "@/lib/utils/export"
+import { Download } from "lucide-react"
 
 interface Activity {
   id: string
@@ -74,45 +81,71 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
 
   const displayStudentId = studentId || currentUserId
   const canEdit = viewMode === "student" || viewMode === "mentor"
-
   const [activities, setActivities] = useState<Record<string, Activity[]>>({
-    work: [
-      {
-        id: "1",
-        organization: "Royal London Hospital",
-        role: "Healthcare Assistant Shadowing",
-        startDate: "2026-01",
-        endDate: "2026-02",
-        notes:
-          "Observed patient care in A&E department. Learned about triage processes and multidisciplinary team collaboration.",
-        verified: true,
-      },
-    ],
-    volunteering: [
-      {
-        id: "2",
-        organization: "St. John Ambulance",
-        role: "Volunteer First Aider",
-        startDate: "2025-09",
-        endDate: "Present",
-        notes: "Providing first aid support at community events. Completed advanced first aid training.",
-        verified: true,
-      },
-    ],
-    reading: [
-      {
-        id: "3",
-        organization: "Medical Literature",
-        role: "Being Mortal by Atul Gawande",
-        startDate: "2026-01",
-        endDate: "2026-02",
-        notes:
-          "Eye-opening exploration of end-of-life care and how medicine approaches mortality. Changed my perspective on patient autonomy.",
-        verified: false,
-      },
-    ],
+    work: [],
+    volunteering: [],
+    reading: [],
     extracurricular: [],
   })
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Helper function to convert DB format to component format
+  const dbActivityToComponent = (dbActivity: DBPortfolioActivity): Activity => ({
+    id: dbActivity.id,
+    organization: dbActivity.organization,
+    role: dbActivity.role,
+    startDate: dbActivity.start_date,
+    endDate: dbActivity.end_date || "Present",
+    notes: dbActivity.notes || "",
+    verified: dbActivity.verified,
+  })
+
+  // Helper function to convert component format to DB format
+  const componentActivityToDB = (activity: Activity, category: string): Omit<DBPortfolioActivity, 'id' | 'user_id' | 'created_at' | 'updated_at'> => ({
+    category: category as 'work' | 'volunteering' | 'reading' | 'extracurricular',
+    organization: activity.organization,
+    role: activity.role,
+    start_date: activity.startDate,
+    end_date: activity.endDate === "Present" ? null : activity.endDate,
+    notes: activity.notes || null,
+    verified: activity.verified,
+  })
+
+  // Load activities from Supabase
+  useEffect(() => {
+    const loadActivities = async () => {
+      const targetStudentId = studentId || currentUserId
+      if (!targetStudentId) {
+        setIsLoading(false)
+        return
+      }
+      
+      setIsLoading(true)
+      try {
+        const dbActivities = await getPortfolioActivities(targetStudentId)
+        const groupedActivities: Record<string, Activity[]> = {
+          work: [],
+          volunteering: [],
+          reading: [],
+          extracurricular: [],
+        }
+        
+        dbActivities.forEach(dbActivity => {
+          const componentActivity = dbActivityToComponent(dbActivity)
+          groupedActivities[dbActivity.category].push(componentActivity)
+        })
+        
+        setActivities(groupedActivities)
+        setActivitiesState(groupedActivities)
+      } catch (error) {
+        console.error("Error loading portfolio activities:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadActivities()
+  }, [studentId, currentUserId])
 
   const [todos, setTodos] = useState<Record<string, { id: string; text: string; done: boolean }[]>>({
     work: [],
@@ -122,11 +155,12 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
   })
   const [newTodo, setNewTodo] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!displayStudentId) return
 
     const newActivity: Activity = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // Temporary ID
       organization: formData.organization,
       role: formData.role,
       startDate: formData.startDate,
@@ -135,6 +169,7 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
       verified: false,
     }
 
+    // Optimistically update UI
     setActivities({
       ...activities,
       [activeTab]: [...activities[activeTab], newActivity],
@@ -142,6 +177,8 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
 
     setIsDialogOpen(false)
     setFormData({ organization: "", role: "", startDate: "", endDate: "", notes: "" })
+    
+    // Auto-save will handle the save
   }
 
   const tabs = [
@@ -172,22 +209,88 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
     })
   }
 
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    if (!canEdit) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        if (canUndo) undo()
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault()
+        if (canRedo) redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [canEdit, canUndo, canRedo, undo, redo])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <p className="text-slate-600 font-light">Loading portfolio activities...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-serif text-slate-900 mb-1 font-light">Supracurricular Portfolio</h2>
           <p className="text-sm text-slate-700 font-light">Document your experiences and reflections</p>
+          {canEdit && (
+            <div className="flex items-center gap-3 mt-2">
+              <SaveStatusIndicator status={saveStatus} lastSaved={lastSaved} />
+              <UndoRedoButtons 
+                onUndo={undo} 
+                onRedo={redo} 
+                canUndo={canUndo} 
+                canRedo={canRedo} 
+              />
+            </div>
+          )}
         </div>
 
         {canEdit && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light px-6 shadow-lg shadow-[#D4AF37]/20">
-                <Plus size={16} className="mr-2" />
-                Add Activity
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const allActivities = Object.entries(activities).flatMap(([category, acts]) =>
+                  acts.map(act => ({
+                    Category: category,
+                    Organization: act.organization,
+                    Role: act.role,
+                    'Start Date': act.startDate,
+                    'End Date': act.endDate,
+                    Notes: act.notes,
+                    Verified: act.verified ? 'Yes' : 'No',
+                  }))
+                )
+                if (allActivities.length > 0) {
+                  exportToCSV(allActivities, 'portfolio-activities')
+                } else {
+                  alert('No activities to export')
+                }
+              }}
+              className="border-slate-300 rounded-lg hover:bg-slate-50 transition-all"
+              disabled={Object.values(activities).flat().length === 0}
+            >
+              <Download size={16} className="mr-2" />
+              Export CSV
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light px-6 shadow-lg shadow-[#D4AF37]/20">
+                  <Plus size={16} className="mr-2" />
+                  Add Activity
+                </Button>
+              </DialogTrigger>
             <DialogContent className="bg-white border-slate-200 max-w-2xl rounded-lg">
               <DialogHeader>
                 <DialogTitle className="text-slate-900 font-serif text-xl font-light">Add New Activity</DialogTitle>
@@ -278,6 +381,7 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         )}
       </div>
 

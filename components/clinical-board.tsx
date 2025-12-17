@@ -11,7 +11,7 @@ export function ClinicalBoard() {
       title: "Dentistry",
       credential: "GDC Registered Dentist",
       graduation: "King's College London with Honours",
-      image: "/professional-dentist-portrait-grayscale.jpg",
+      image: "/Board Dentistry Regents Consultancy.png",
       profile: "Graduated from King's College London with Honours. NHS Dentist with over 12 years of professional practice and admissions expertise. Specialises in guiding international candidates through the unique requirements of UK dental schools. Expert in interview preparation, having conducted hundreds of mock MMI sessions and panel interviews. Renowned for translating complex professional experiences into compelling personal statements that resonate with admissions committees.",
     },
     {
@@ -20,7 +20,7 @@ export function ClinicalBoard() {
       title: "Medicine",
       credential: "GMC Registered Specialist",
       graduation: "Cambridge & UCL - 1st Class and Distinction",
-      image: "/professional-doctor-portrait-grayscale.jpg",
+      image: "/Board Regents Consultancy Medical.png",
       profile: "Graduated from Cambridge & UCL with 1st Class and Distinction. NHS Family Medicine Consultant with 12+ years of professional excellence and admissions mentorship. Extensive experience supporting international candidates from IB, American, and global curricula. Master interviewer with deep expertise in MMI design and medical ethics. Has successfully guided hundreds of candidates to G5 medical schools, with particular strength in strategic university selection and personal statement refinement.",
     },
     {
@@ -29,7 +29,7 @@ export function ClinicalBoard() {
       title: "Veterinary Medicine",
       credential: "RCVS Registered Veterinary Surgeon",
       graduation: "Royal Veterinary College",
-      image: "/professional-veterinarian-portrait-grayscale.jpg",
+      image: "/Regents Consultancy Board Veterinary.png",
       profile: "Graduated from the Royal Veterinary College. RCVS Registered Veterinary Surgeon with over 12 years of professional practice and admissions coaching. Expert in veterinary school admissions strategy, having mentored candidates across all UK veterinary programmes. Specialises in helping international students navigate the competitive veterinary admissions landscape. Known for exceptional interview preparation, combining professional insight with strategic candidacy development to secure placements at top-tier institutions.",
     },
   ]
@@ -77,7 +77,7 @@ export function ClinicalBoard() {
                         src={consultant.image}
                   alt={consultant.name}
                   fill
-                        className="object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-500"
+                        className="object-cover grayscale group-hover:grayscale-[0.9] group-hover:scale-[1.02] transition-all duration-500"
                       />
                     </div>
                   </div>

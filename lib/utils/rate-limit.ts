@@ -1,4 +1,10 @@
-// Simple in-memory rate limiter (for production, use Redis or similar)
+// Simple in-memory rate limiter
+// NOTE: This is a basic implementation that works for single-instance deployments.
+// For production with multiple instances/edge functions, consider using:
+// - Redis-based rate limiting
+// - Upstash Rate Limit
+// - Vercel Edge Config with KV storage
+// - Cloudflare Workers KV
 
 interface RateLimitStore {
   [key: string]: {
@@ -63,6 +69,7 @@ export function getClientIdentifier(request: Request): string {
   const ip = forwarded?.split(",")[0] || realIp || "unknown"
   return ip
 }
+
 
 
 

@@ -50,45 +50,45 @@ export function DashboardView({ viewMode, studentId }: DashboardViewProps) {
   const role = studentData?.role || "student"
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card className="bg-white border-slate-200 rounded-none">
-        <CardHeader>
-          <CardTitle className="text-lg font-light text-slate-900">Overview</CardTitle>
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="text-base sm:text-lg font-light text-slate-900">Overview</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
-            <BookOpen size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
-            <div>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 px-4 sm:px-6 pb-4 sm:pb-6">
+          <div className="flex items-start gap-3 p-3 sm:p-4 border border-slate-200 rounded-lg bg-slate-50">
+            <BookOpen size={18} className="text-[#D4AF37] flex-shrink-0" strokeWidth={1.5} />
+            <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-wider text-slate-500 font-light">Course & Entry</p>
-              <p className="text-sm text-slate-900 font-light">{courseName} {entryYear} Entry</p>
+              <p className="text-sm sm:text-base text-slate-900 font-light break-words">{courseName} {entryYear} Entry</p>
             </div>
           </div>
-          <div className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
-            <MapPin size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
-            <div>
+          <div className="flex items-start gap-3 p-3 sm:p-4 border border-slate-200 rounded-lg bg-slate-50">
+            <MapPin size={18} className="text-[#D4AF37] flex-shrink-0" strokeWidth={1.5} />
+            <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-wider text-slate-500 font-light">Location</p>
-              <p className="text-sm text-slate-900 font-light">{country}</p>
+              <p className="text-sm sm:text-base text-slate-900 font-light break-words">{country}</p>
             </div>
           </div>
-          <div className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
-            <UserIcon size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
-            <div>
+          <div className="flex items-start gap-3 p-3 sm:p-4 border border-slate-200 rounded-lg bg-slate-50">
+            <UserIcon size={18} className="text-[#D4AF37] flex-shrink-0" strokeWidth={1.5} />
+            <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-wider text-slate-500 font-light">Role</p>
-              <p className="text-sm text-slate-900 font-light capitalize">{role}</p>
+              <p className="text-sm sm:text-base text-slate-900 font-light capitalize">{role}</p>
             </div>
           </div>
-          <div className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
-            <ShieldCheck size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
-            <div>
+          <div className="flex items-start gap-3 p-3 sm:p-4 border border-slate-200 rounded-lg bg-slate-50">
+            <ShieldCheck size={18} className="text-[#D4AF37] flex-shrink-0" strokeWidth={1.5} />
+            <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-wider text-slate-500 font-light">Approval</p>
-              <p className="text-sm text-slate-900 font-light capitalize">{approval}</p>
+              <p className="text-sm sm:text-base text-slate-900 font-light capitalize">{approval}</p>
             </div>
           </div>
-          <div className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
-            <ClipboardCheck size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
-            <div>
+          <div className="flex items-start gap-3 p-3 sm:p-4 border border-slate-200 rounded-lg bg-slate-50">
+            <ClipboardCheck size={18} className="text-[#D4AF37] flex-shrink-0" strokeWidth={1.5} />
+            <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-wider text-slate-500 font-light">Onboarding</p>
-              <p className="text-sm text-slate-900 font-light capitalize">{onboarding}</p>
+              <p className="text-sm sm:text-base text-slate-900 font-light capitalize">{onboarding}</p>
             </div>
           </div>
         </CardContent>
@@ -96,10 +96,10 @@ export function DashboardView({ viewMode, studentId }: DashboardViewProps) {
 
       {displayStudentId && (
         <Card className="bg-white border-slate-200 rounded-none">
-          <CardHeader>
-            <CardTitle className="text-lg font-light text-slate-900">Mentor & Admin Comments</CardTitle>
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="text-base sm:text-lg font-light text-slate-900">Mentor & Admin Comments</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
             <CommentsFeed studentId={displayStudentId} />
           </CardContent>
         </Card>

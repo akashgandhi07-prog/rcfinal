@@ -4,6 +4,18 @@ import { sanitizeString, sanitizeEmail, sanitizeHTML, validateEmail, validateReq
 
 export const runtime = 'edge'
 
+// HTML escaping function to prevent XSS in email templates
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }
+  return text.replace(/[&<>"']/g, (m) => map[m])
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -35,11 +47,13 @@ export async function POST(request: NextRequest) {
       phoneNumber: sanitizeString(formData.phoneNumber || ""),
       isStudent: sanitizeString(formData.isStudent || ""),
       country: sanitizeString(formData.country || ""),
+      feeStatus: sanitizeString(formData.feeStatus || ""),
       schoolName: sanitizeString(formData.schoolName || ""),
       universityEntryYear: sanitizeString(formData.universityEntryYear || ""),
       subject: sanitizeString(formData.subject || ""),
       studentDOB: sanitizeString(formData.studentDOB || ""),
       yearOfStudy: sanitizeString(formData.yearOfStudy || ""),
+      howDidYouHearAboutUs: sanitizeString(formData.howDidYouHearAboutUs || ""),
       notes: sanitizeHTML(formData.notes || ""),
     }
 
@@ -61,6 +75,9 @@ export async function POST(request: NextRequest) {
     }
     if (!validateRequired(sanitizedData.country)) {
       return NextResponse.json({ error: "Country is required" }, { status: 400 })
+    }
+    if (!validateRequired(sanitizedData.feeStatus)) {
+      return NextResponse.json({ error: "Fee status is required" }, { status: 400 })
     }
     if (!validateRequired(sanitizedData.schoolName)) {
       return NextResponse.json({ error: "School name is required" }, { status: 400 })
@@ -88,6 +105,7 @@ PERSONAL INFORMATION:
 - Phone: ${sanitizedData.phoneNumber}
 - Role: ${sanitizedData.isStudent}
 - Country: ${sanitizedData.country}
+- Fee Status: ${sanitizedData.feeStatus}
 
 ACADEMIC INFORMATION:
 - School/College: ${sanitizedData.schoolName}
@@ -97,7 +115,8 @@ ACADEMIC INFORMATION:
 - Student Date of Birth: ${sanitizedData.studentDOB}
 
 ADDITIONAL INFORMATION:
-${sanitizedData.notes || "No additional notes provided."}
+- How Did You Hear About Us: ${sanitizedData.howDidYouHearAboutUs || "Not specified"}
+${sanitizedData.notes ? `- Notes: ${sanitizedData.notes}` : "No additional notes provided."}
 
 ---
 Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
@@ -129,25 +148,30 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
                 
                 <h3 style="color: #0B1120; margin-top: 20px;">Personal Information</h3>
                 <table style="width: 100%; border-collapse: collapse;">
-                  <tr><td style="padding: 5px; font-weight: bold;">Name:</td><td style="padding: 5px;">${sanitizedData.firstName} ${sanitizedData.lastName}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">Email:</td><td style="padding: 5px;">${sanitizedData.email}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">Phone:</td><td style="padding: 5px;">${sanitizedData.phoneNumber}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">Role:</td><td style="padding: 5px;">${sanitizedData.isStudent}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">Country:</td><td style="padding: 5px;">${sanitizedData.country}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Name:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.firstName)} ${escapeHtml(sanitizedData.lastName)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Email:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.email)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Phone:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.phoneNumber)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Role:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.isStudent)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Country:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.country)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Fee Status:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.feeStatus)}</td></tr>
                 </table>
 
                 <h3 style="color: #0B1120; margin-top: 20px;">Academic Information</h3>
                 <table style="width: 100%; border-collapse: collapse;">
-                  <tr><td style="padding: 5px; font-weight: bold;">School/College:</td><td style="padding: 5px;">${sanitizedData.schoolName}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">University Entry Year:</td><td style="padding: 5px;">${sanitizedData.universityEntryYear}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">Year of Study:</td><td style="padding: 5px;">${sanitizedData.yearOfStudy}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">Subject:</td><td style="padding: 5px;">${sanitizedData.subject}</td></tr>
-                  <tr><td style="padding: 5px; font-weight: bold;">Student DOB:</td><td style="padding: 5px;">${sanitizedData.studentDOB}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">School/College:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.schoolName)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">University Entry Year:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.universityEntryYear)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Year of Study:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.yearOfStudy)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Subject:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.subject)}</td></tr>
+                  <tr><td style="padding: 5px; font-weight: bold;">Student DOB:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.studentDOB)}</td></tr>
                 </table>
 
+                <h3 style="color: #0B1120; margin-top: 20px;">Additional Information</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                  ${sanitizedData.howDidYouHearAboutUs ? `<tr><td style="padding: 5px; font-weight: bold;">How Did You Hear About Us:</td><td style="padding: 5px;">${escapeHtml(sanitizedData.howDidYouHearAboutUs)}</td></tr>` : ''}
+                </table>
                 ${sanitizedData.notes ? `
                 <h3 style="color: #0B1120; margin-top: 20px;">Additional Notes</h3>
-                <p style="background: #f5f5f5; padding: 15px; border-left: 3px solid #D4AF37;">${sanitizedData.notes.replace(/\n/g, '<br>')}</p>
+                <p style="background: #f5f5f5; padding: 15px; border-left: 3px solid #D4AF37;">${escapeHtml(sanitizedData.notes).replace(/\n/g, '<br>')}</p>
                 ` : ''}
 
                 <p style="margin-top: 20px; color: #666; font-size: 12px;">

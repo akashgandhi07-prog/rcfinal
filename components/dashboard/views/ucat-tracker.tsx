@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Plus, TrendingUp, Award, ClipboardList, Pencil, Trash2, Calendar, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from "recharts"
 import { MentorComments } from "@/components/portal/mentor-comments"
-import { getCurrentUser } from "@/lib/supabase/queries"
+import { getCurrentUser, getUCATMocks, createUCATMock, updateUCATMock, deleteUCATMock } from "@/lib/supabase/queries"
 import type { User } from "@/lib/supabase/types"
+import type { UCATMock as DBUCATMock } from "@/lib/supabase/types"
+import { useUndoRedo } from "@/lib/hooks/use-undo-redo"
+import { useAutoSave } from "@/lib/hooks/use-auto-save"
+import { SaveStatusIndicator } from "@/components/ui/save-status"
+import { UndoRedoButtons } from "@/components/ui/undo-redo-buttons"
+import { exportToCSV, exportToJSON } from "@/lib/utils/export"
+import { Download } from "lucide-react"
 
 interface UCATMock {
   id: string
@@ -62,128 +69,153 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
 
   const displayStudentId = studentId || currentUserId
   const canEdit = viewMode === "student" || viewMode === "mentor"
-  const [mocks, setMocks] = useState<UCATMock[]>([
-    {
-      id: "1",
-      date: "2026-01-15",
-      provider: "Medify Mock 1",
-      vr: 680,
-      dm: 720,
-      qr: 690,
-      sjt: "Band 1",
-      total: 2090,
+  const [mocks, setMocks] = useState<UCATMock[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Undo/Redo functionality
+  const {
+    state: mocksState,
+    setState: setMocksState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoRedo<UCATMock[]>(mocks)
+
+  // Track if we're applying undo/redo to prevent loops
+  const isApplyingUndoRedo = useRef(false)
+
+  // Sync undo/redo state with mocks (when mocks change from user actions)
+  useEffect(() => {
+    if (!isApplyingUndoRedo.current) {
+      const mocksStr = JSON.stringify(mocks)
+      const stateStr = JSON.stringify(mocksState)
+      if (mocksStr !== stateStr) {
+        setMocksState(mocks)
+      }
+    }
+  }, [mocks])
+
+  // Apply undo/redo changes
+  useEffect(() => {
+    const mocksStr = JSON.stringify(mocks)
+    const stateStr = JSON.stringify(mocksState)
+    if (stateStr !== mocksStr) {
+      isApplyingUndoRedo.current = true
+      setMocks(mocksState)
+      setTimeout(() => {
+        isApplyingUndoRedo.current = false
+      }, 0)
+    }
+  }, [mocksState])
+
+  // Auto-save functionality
+  const { saveStatus, lastSaved, error: saveError, manualSave } = useAutoSave({
+    data: mocks,
+    onSave: async (data) => {
+      if (!displayStudentId) return false
+      
+      try {
+        // Get current mocks from DB to check for conflicts
+        const dbMocks = await getUCATMocks(displayStudentId)
+        const dbMockIds = new Set(dbMocks.map(m => m.id))
+        const localMockIds = new Set(data.map(m => m.id))
+        
+        // Create a copy to avoid mutation
+        const dataCopy = [...data]
+        
+        // Save all mocks
+        const savePromises = dataCopy.map(async (mock, index) => {
+          const dbMock = componentMockToDB(mock)
+          if (dbMockIds.has(mock.id)) {
+            // Update existing
+            const result = await updateUCATMock(mock.id, dbMock)
+            return { success: result !== null, mock, index }
+          } else {
+            // Create new - check if it's a temporary ID (timestamp string)
+            const isTemporaryId = /^\d+$/.test(mock.id) && mock.id.length > 10
+            if (isTemporaryId) {
+              const result = await createUCATMock(displayStudentId, dbMock)
+              if (result) {
+                // Update local state with real ID
+                setMocks(prev => prev.map(m => m.id === mock.id ? dbMockToComponent(result) : m))
+                return { success: true, mock: dbMockToComponent(result), index }
+              }
+              return { success: false, mock, index }
+            }
+            return { success: true, mock, index }
+          }
+        })
+
+        // Delete mocks that are no longer in local state
+        const deletePromises = dbMocks
+          .filter(dbMock => !localMockIds.has(dbMock.id))
+          .map(dbMock => deleteUCATMock(dbMock.id))
+
+        const results = await Promise.all(savePromises)
+        await Promise.all(deletePromises)
+        
+        // Check if all saves succeeded
+        const allSucceeded = results.every(r => r.success)
+        return allSucceeded
+      } catch (error) {
+        console.error("Error auto-saving mocks:", error)
+        return false
+      }
     },
-    {
-      id: "2",
-      date: "2026-01-22",
-      provider: "Official Mock A",
-      vr: 710,
-      dm: 730,
-      qr: 720,
-      sjt: "Band 1",
-      total: 2160,
-    },
-    {
-      id: "3",
-      date: "2026-02-05",
-      provider: "Medify Mock 2",
-      vr: 720,
-      dm: 750,
-      qr: 730,
-      sjt: "Band 1",
-      total: 2200,
-    },
-    {
-      id: "4",
-      date: "2026-02-12",
-      provider: "Official Mock B",
-      vr: 740,
-      dm: 760,
-      qr: 750,
-      sjt: "Band 1",
-      total: 2250,
-    },
-    {
-      id: "5",
-      date: "2026-02-19",
-      provider: "Medify Mock 3",
-      vr: 750,
-      dm: 770,
-      qr: 760,
-      sjt: "Band 1",
-      total: 2280,
-    },
-    {
-      id: "6",
-      date: "2026-02-26",
-      provider: "Official Mock C",
-      vr: 760,
-      dm: 780,
-      qr: 770,
-      sjt: "Band 1",
-      total: 2310,
-    },
-    {
-      id: "7",
-      date: "2026-03-05",
-      provider: "Medify Mock 4",
-      vr: 770,
-      dm: 790,
-      qr: 780,
-      sjt: "Band 1",
-      total: 2340,
-    },
-    {
-      id: "8",
-      date: "2026-03-12",
-      provider: "Official Mock D",
-      vr: 780,
-      dm: 800,
-      qr: 790,
-      sjt: "Band 1",
-      total: 2370,
-    },
-    {
-      id: "9",
-      date: "2026-03-19",
-      provider: "Medify Mock 5",
-      vr: 790,
-      dm: 810,
-      qr: 800,
-      sjt: "Band 1",
-      total: 2400,
-    },
-    {
-      id: "10",
-      date: "2026-03-26",
-      provider: "Official Mock E",
-      vr: 800,
-      dm: 820,
-      qr: 810,
-      sjt: "Band 1",
-      total: 2430,
-    },
-    {
-      id: "11",
-      date: "2026-04-02",
-      provider: "Medify Mock 6",
-      vr: 810,
-      dm: 830,
-      qr: 820,
-      sjt: "Band 1",
-      total: 2460,
-    },
-    {
-      id: "12",
-      date: "2026-04-09",
-      provider: "Official Mock F",
-      vr: 820,
-      dm: 840,
-      qr: 830,
-      sjt: "Band 1",
-      total: 2490,
-    },
-  ])
+    debounceMs: 2000,
+    enabled: canEdit,
+  })
+
+  // Helper function to convert DB format to component format
+  const dbMockToComponent = (dbMock: DBUCATMock): UCATMock => ({
+    id: dbMock.id,
+    date: dbMock.date,
+    provider: dbMock.mock_name,
+    vr: dbMock.vr_score || 0,
+    dm: dbMock.dm_score || 0,
+    qr: dbMock.qr_score || 0,
+    sjt: dbMock.sjt_band || "Band 1",
+    total: dbMock.total_score || 0,
+  })
+
+  // Helper function to convert component format to DB format
+  const componentMockToDB = (mock: UCATMock): Omit<DBUCATMock, 'id' | 'user_id' | 'created_at' | 'updated_at'> => ({
+    date: mock.date,
+    mock_name: mock.provider,
+    vr_score: mock.vr,
+    dm_score: mock.dm,
+    qr_score: mock.qr,
+    ar_score: null,
+    total_score: mock.total,
+    sjt_band: mock.sjt,
+  })
+
+  // Load mocks from Supabase
+  useEffect(() => {
+    const loadMocks = async () => {
+      const targetStudentId = studentId || currentUserId
+      if (!targetStudentId) {
+        setIsLoading(false)
+        return
+      }
+      
+      setIsLoading(true)
+      try {
+        const dbMocks = await getUCATMocks(targetStudentId)
+        const componentMocks = dbMocks.map(dbMockToComponent)
+        setMocks(componentMocks)
+        // Initialize undo/redo with loaded data
+        setMocksState(componentMocks)
+      } catch (error) {
+        console.error("Error loading UCAT mocks:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadMocks()
+  }, [studentId, currentUserId])
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -248,8 +280,10 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
     return !Number.isNaN(num) && num >= 300 && num <= 900
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!displayStudentId) return
+    
     if (!isScoreValid(formData.vr) || !isScoreValid(formData.dm) || !isScoreValid(formData.qr)) {
       window.alert("Each subtest score (VR, DM, QR) must be between 300 and 900.")
       return
@@ -262,7 +296,7 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
     }
 
     const newMock: UCATMock = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // Temporary ID
       date: formData.date,
       provider: formData.provider,
       vr: Number(formData.vr),
@@ -272,13 +306,18 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
       total,
     }
 
+    // Optimistically update UI
     setMocks([...mocks, newMock])
     setIsCreateDialogOpen(false)
     setFormData(emptyFormState)
+    
+    // Auto-save will handle the save
   }
 
   const handleDelete = (id: string) => {
+    // Optimistically update UI
     setMocks(mocks.filter((m) => m.id !== id))
+    // Auto-save will handle the deletion
   }
 
   const handleEditClick = (mock: UCATMock) => {
@@ -294,7 +333,7 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
     setIsEditDialogOpen(true)
   }
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingMock) return
 
@@ -324,9 +363,12 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
       total,
     }
 
+    // Optimistically update UI
     setMocks(mocks.map((m) => (m.id === editingMock.id ? updated : m)))
     setIsEditDialogOpen(false)
     setEditingMock(null)
+    
+    // Auto-save will handle the save
   }
 
   const handleClearAllClick = () => {
@@ -341,6 +383,35 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
   const handleClearAllFinal = () => {
     setMocks([])
     setShowFinalConfirm(false)
+    // Auto-save will handle the deletion
+  }
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    if (!canEdit) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        if (canUndo) undo()
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault()
+        if (canRedo) redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [canEdit, canUndo, canRedo, undo, redo])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <p className="text-slate-600 font-light">Loading UCAT mocks...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -384,10 +455,42 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
         <div>
           <h2 className="text-xl font-light text-slate-900">Performance Analytics</h2>
           <p className="text-sm text-slate-600 mt-1 font-light">Track your UCAT mock exam progress</p>
+          {canEdit && (
+            <div className="flex items-center gap-3 mt-2">
+              <SaveStatusIndicator status={saveStatus} lastSaved={lastSaved} />
+              <UndoRedoButtons 
+                onUndo={undo} 
+                onRedo={redo} 
+                canUndo={canUndo} 
+                canRedo={canRedo} 
+              />
+            </div>
+          )}
         </div>
 
         {canEdit && (
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const csvData = mocks.map(m => ({
+                  Date: m.date,
+                  'Mock Provider': m.provider,
+                  'VR Score': m.vr,
+                  'DM Score': m.dm,
+                  'QR Score': m.qr,
+                  'Total Score': m.total,
+                  'SJT Band': m.sjt,
+                }))
+                exportToCSV(csvData, 'ucat-mocks')
+              }}
+              className="border-slate-300 rounded-lg hover:bg-slate-50 transition-all"
+              disabled={mocks.length === 0}
+            >
+              <Download size={16} className="mr-2" />
+              Export CSV
+            </Button>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light shadow-sm hover:shadow-md transition-all">
                 <Plus size={16} className="mr-2" />
@@ -514,6 +617,7 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         )}
       </div>
 

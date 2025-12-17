@@ -20,7 +20,7 @@ export default function Page() {
   return (
     <>
       <Navigation />
-      <main className="overflow-x-hidden max-w-full">
+      <main id="main-content" className="overflow-x-hidden max-w-full" tabIndex={-1}>
         <HeroSection />
         <TrustedDestinations />
         <StrategicRoadmap />

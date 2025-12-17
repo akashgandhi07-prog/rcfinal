@@ -7,6 +7,8 @@ const requiredEnvVars = [
 
 const optionalEnvVars = [
   "RESEND_API_KEY",
+  "NEXT_PUBLIC_DEMO_PASSWORD",
+  "NEXT_PUBLIC_PRIMARY_ADMIN_EMAIL",
 ] as const
 
 export function validateEnvVars(): void {
@@ -45,6 +47,7 @@ if (typeof window === "undefined") {
     }
   }
 }
+
 
 
 

@@ -1,7 +1,8 @@
 import { supabase } from './client'
-import type { User, UCATMock, FeatureToggle, ParentStudentLink, MentorStudentLink, MentorComment, PortfolioActivity, UniversityStrategy, UserUpdate } from './types'
+import type { User, UCATMock, FeatureToggle, ParentStudentLink, MentorStudentLink, MentorComment, PortfolioActivity, UniversityStrategy, UserUpdate, ActivityLog, LoginAttempt } from './types'
 import { FeatureName } from './types'
 import { logger } from '@/lib/utils/logger'
+import { logCreate, logUpdate, logDelete } from '@/lib/utils/activity-logger'
 
 // ============================================
 // USER QUERIES
@@ -71,6 +72,18 @@ export async function updateUser(
     if (error) {
       logger.error('Error updating user', error, { userId })
       return null
+    }
+
+    // Log user updates (track what changed)
+    const changes: Record<string, { old: unknown; new: unknown }> = {}
+    Object.keys(updates).forEach((key) => {
+      changes[key] = {
+        old: `[previous value]`,
+        new: updates[key as keyof typeof updates],
+      }
+    })
+    if (Object.keys(changes).length > 0) {
+      await logUpdate('user', userId, changes, `Updated user profile: ${userId}`)
     }
 
     return data as User
@@ -340,6 +353,16 @@ export async function createParentStudentLink(
       return null
     }
 
+    // Log the link creation
+    await logActivity('link', 'parent_student_link', {
+      resourceId: studentId,
+      description: `Created parent-student link: ${parentId} -> ${studentId}`,
+      metadata: {
+        parent_id: parentId,
+        student_id: studentId,
+      },
+    })
+
     return data as ParentStudentLink
   } catch (error) {
     logger.error('Error in createParentStudentLink', error, { parentId, studentId })
@@ -362,6 +385,16 @@ export async function deleteParentStudentLink(
       logger.error('Error deleting parent-student link', error, { parentId, studentId })
       return false
     }
+
+    // Log the link deletion
+    await logActivity('unlink', 'parent_student_link', {
+      resourceId: studentId,
+      description: `Deleted parent-student link: ${parentId} -> ${studentId}`,
+      metadata: {
+        parent_id: parentId,
+        student_id: studentId,
+      },
+    })
 
     return true
   } catch (error) {
@@ -426,6 +459,9 @@ export async function createUCATMock(
       return null
     }
 
+    // Log the creation
+    await logCreate('ucat_mock', data.id, `Created UCAT mock: ${mock.mock_name || 'Unnamed'} for user ${userId}`)
+
     return data as UCATMock
   } catch (error) {
     logger.error('Error in createUCATMock', error, { userId })
@@ -450,6 +486,16 @@ export async function updateUCATMock(
       return null
     }
 
+    // Log the update
+    const changes: Record<string, { old: unknown; new: unknown }> = {}
+    Object.keys(updates).forEach((key) => {
+      changes[key] = {
+        old: `[previous value]`,
+        new: updates[key as keyof typeof updates],
+      }
+    })
+    await logUpdate('ucat_mock', mockId, changes, `Updated UCAT mock: ${mockId}`)
+
     return data as UCATMock
   } catch (error) {
     logger.error('Error in updateUCATMock', error, { mockId })
@@ -468,6 +514,9 @@ export async function deleteUCATMock(mockId: string): Promise<boolean> {
       logger.error('Error deleting UCAT mock', error, { mockId })
       return false
     }
+
+    // Log the deletion
+    await logDelete('ucat_mock', mockId, `Deleted UCAT mock: ${mockId}`)
 
     return true
   } catch (error) {
@@ -519,6 +568,9 @@ export async function createPortfolioActivity(
       return null
     }
 
+    // Log the creation
+    await logCreate('portfolio_activity', data.id, `Created portfolio activity: ${activity.organization} (${activity.category}) for user ${userId}`)
+
     return data as PortfolioActivity
   } catch (error) {
     console.error('Error in createPortfolioActivity:', error)
@@ -543,6 +595,16 @@ export async function updatePortfolioActivity(
       return null
     }
 
+    // Log the update
+    const changes: Record<string, { old: unknown; new: unknown }> = {}
+    Object.keys(updates).forEach((key) => {
+      changes[key] = {
+        old: `[previous value]`,
+        new: updates[key as keyof typeof updates],
+      }
+    })
+    await logUpdate('portfolio_activity', activityId, changes, `Updated portfolio activity: ${activityId}`)
+
     return data as PortfolioActivity
   } catch (error) {
     console.error('Error in updatePortfolioActivity:', error)
@@ -561,6 +623,9 @@ export async function deletePortfolioActivity(activityId: string): Promise<boole
       logger.error('Error deleting portfolio activity', error, { activityId })
       return false
     }
+
+    // Log the deletion
+    await logDelete('portfolio_activity', activityId, `Deleted portfolio activity: ${activityId}`)
 
     return true
   } catch (error) {
@@ -622,6 +687,9 @@ export async function createUniversityStrategy(
       return null
     }
 
+    // Log the creation
+    await logCreate('university_strategy', data.id, `Created university strategy: ${strategy.university_name} (${strategy.status}) for user ${userId}`)
+
     return data as UniversityStrategy
   } catch (error) {
     logger.error('Error in createUniversityStrategy', error, { userId })
@@ -664,6 +732,16 @@ export async function updateUniversityStrategy(
       return null
     }
 
+    // Log the update
+    const changes: Record<string, { old: unknown; new: unknown }> = {}
+    Object.keys(updates).forEach((key) => {
+      changes[key] = {
+        old: `[previous value]`,
+        new: updates[key as keyof typeof updates],
+      }
+    })
+    await logUpdate('university_strategy', strategyId, changes, `Updated university strategy: ${strategyId}`)
+
     return data as UniversityStrategy
   } catch (error) {
     logger.error('Error in updateUniversityStrategy', error, { strategyId })
@@ -682,6 +760,9 @@ export async function deleteUniversityStrategy(strategyId: string): Promise<bool
       logger.error('Error deleting university strategy', error, { strategyId })
       return false
     }
+
+    // Log the deletion
+    await logDelete('university_strategy', strategyId, `Deleted university strategy: ${strategyId}`)
 
     return true
   } catch (error) {
@@ -713,6 +794,16 @@ export async function createMentorStudentLink(
       return null
     }
 
+    // Log the link creation
+    await logActivity('link', 'mentor_student_link', {
+      resourceId: studentId,
+      description: `Created mentor-student link: ${mentorId} -> ${studentId}`,
+      metadata: {
+        mentor_id: mentorId,
+        student_id: studentId,
+      },
+    })
+
     return data as MentorStudentLink
   } catch (error) {
     logger.error('Error in createMentorStudentLink', error, { mentorId, studentId })
@@ -735,6 +826,16 @@ export async function deleteMentorStudentLink(
       logger.error('Error deleting mentor-student link', error, { mentorId, studentId })
       return false
     }
+
+    // Log the link deletion
+    await logActivity('unlink', 'mentor_student_link', {
+      resourceId: studentId,
+      description: `Deleted mentor-student link: ${mentorId} -> ${studentId}`,
+      metadata: {
+        mentor_id: mentorId,
+        student_id: studentId,
+      },
+    })
 
     return true
   } catch (error) {
@@ -844,6 +945,9 @@ export async function createMentorComment(
       return null
     }
 
+    // Log the creation
+    await logCreate('mentor_comment', data.id, `Created mentor comment on ${section} for student ${studentId}`)
+
     return data as MentorComment
   } catch (error) {
     logger.error('Error in createMentorComment', error, { mentorId, studentId, section })
@@ -922,6 +1026,11 @@ export async function updateMentorComment(
       return null
     }
 
+    // Log the update
+    await logUpdate('mentor_comment', commentId, {
+      comment_text: { old: '[previous value]', new: commentText },
+    }, `Updated mentor comment: ${commentId}`)
+
     return data as MentorComment
   } catch (error) {
     logger.error('Error in updateMentorComment', error, { commentId })
@@ -941,9 +1050,155 @@ export async function deleteMentorComment(commentId: string): Promise<boolean> {
       return false
     }
 
+    // Log the deletion
+    await logDelete('mentor_comment', commentId, `Deleted mentor comment: ${commentId}`)
+
     return true
   } catch (error) {
     logger.error('Error in deleteMentorComment', error, { commentId })
     return false
+  }
+}
+
+// ============================================
+// ACTIVITY LOG QUERIES (Admin Only)
+// ============================================
+
+export async function getActivityLogs(options?: {
+  limit?: number
+  offset?: number
+  userId?: string
+  actionType?: string
+  resourceType?: string
+  startDate?: string
+  endDate?: string
+}): Promise<ActivityLog[]> {
+  try {
+    let query = supabase
+      .from('activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (options?.userId) {
+      query = query.eq('user_id', options.userId)
+    }
+
+    if (options?.actionType) {
+      query = query.eq('action_type', options.actionType)
+    }
+
+    if (options?.resourceType) {
+      query = query.eq('resource_type', options.resourceType)
+    }
+
+    if (options?.startDate) {
+      query = query.gte('created_at', options.startDate)
+    }
+
+    if (options?.endDate) {
+      query = query.lte('created_at', options.endDate)
+    }
+
+    if (options?.limit) {
+      query = query.limit(options.limit)
+    }
+
+    if (options?.offset) {
+      query = query.range(options.offset, options.offset + (options.limit || 50) - 1)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      logger.error('Error fetching activity logs', error)
+      return []
+    }
+
+    return (data || []) as ActivityLog[]
+  } catch (error) {
+    logger.error('Error in getActivityLogs', error)
+    return []
+  }
+}
+
+export async function getLoginAttempts(options?: {
+  limit?: number
+  offset?: number
+  email?: string
+  success?: boolean
+  startDate?: string
+  endDate?: string
+}): Promise<LoginAttempt[]> {
+  try {
+    let query = supabase
+      .from('login_attempts')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (options?.email) {
+      query = query.eq('email', options.email)
+    }
+
+    if (options?.success !== undefined) {
+      query = query.eq('success', options.success)
+    }
+
+    if (options?.startDate) {
+      query = query.gte('created_at', options.startDate)
+    }
+
+    if (options?.endDate) {
+      query = query.lte('created_at', options.endDate)
+    }
+
+    if (options?.limit) {
+      query = query.limit(options.limit)
+    }
+
+    if (options?.offset) {
+      query = query.range(options.offset, options.offset + (options.limit || 50) - 1)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      logger.error('Error fetching login attempts', error)
+      return []
+    }
+
+    return (data || []) as LoginAttempt[]
+  } catch (error) {
+    logger.error('Error in getLoginAttempts', error)
+    return []
+  }
+}
+
+export async function getUserActivitySummary(userId?: string): Promise<{
+  user_email: string | null
+  total_activities: number
+  last_activity: string | null
+  login_count: number
+  last_login: string | null
+}[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_user_activity_summary', {
+      p_user_id: userId || null,
+    })
+
+    if (error) {
+      logger.error('Error fetching user activity summary', error)
+      return []
+    }
+
+    return (data || []) as {
+      user_email: string | null
+      total_activities: number
+      last_activity: string | null
+      login_count: number
+      last_login: string | null
+    }[]
+  } catch (error) {
+    logger.error('Error in getUserActivitySummary', error)
+    return []
   }
 }

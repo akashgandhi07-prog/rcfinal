@@ -4,6 +4,33 @@
 -- ============================================
 
 -- ============================================
+-- 0. CREATE SECURITY DEFINER FUNCTION FOR ADMIN CHECK
+-- This prevents infinite recursion in RLS policies
+-- ============================================
+CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID DEFAULT auth.uid())
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+BEGIN
+  -- Check if the user exists and has admin role
+  -- SECURITY DEFINER allows this to bypass RLS
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.users 
+    WHERE id = user_id 
+    AND role = 'admin'
+  );
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.is_admin(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+-- ============================================
 -- 1. ENSURE ADMIN RLS POLICIES ARE COMPREHENSIVE
 -- ============================================
 
@@ -19,98 +46,38 @@ DROP POLICY IF EXISTS "Admins have full access to mentor comments" ON public.men
 -- Users table - Admins can do everything
 CREATE POLICY "Admins have full access to users"
   ON public.users FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- Parent-Student Links - Admins can do everything
 CREATE POLICY "Admins have full access to parent links"
   ON public.parent_student_links FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- Mentor-Student Links - Admins can do everything
 CREATE POLICY "Admins have full access to mentor links"
   ON public.mentor_student_links FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- Mentor Comments - Admins can do everything
 CREATE POLICY "Admins have full access to mentor comments"
   ON public.mentor_comments FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- UCAT Mocks - Admins can do everything
 CREATE POLICY "Admins have full access to UCAT data"
   ON public.ucat_mocks FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- Portfolio Activities - Admins can do everything
 CREATE POLICY "Admins have full access to portfolio"
   ON public.portfolio_activities FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  );
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- University Strategies - Admins can do everything
 CREATE POLICY "Admins have full access to university strategies"
@@ -143,10 +110,7 @@ BEGIN
   
   -- If user is trying to change someone else's role, only allow if they are admin
   IF NEW.id::text != auth.uid()::text AND NEW.role != OLD.role THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    ) THEN
+    IF NOT public.is_admin() THEN
       RAISE EXCEPTION 'Only admins can change user roles';
     END IF;
   END IF;

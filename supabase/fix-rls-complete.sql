@@ -3,7 +3,36 @@
 -- ============================================
 -- This fixes all RLS policies to ensure users can access their own data
 
--- Drop ALL existing policies on users table
+-- ============================================
+-- STEP 1: Create security definer function to check admin role
+-- This function bypasses RLS to check user role (prevents infinite recursion)
+-- ============================================
+CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID DEFAULT auth.uid())
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+BEGIN
+  -- Check if the user exists and has admin role
+  -- SECURITY DEFINER allows this to bypass RLS
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.users 
+    WHERE id = user_id 
+    AND role = 'admin'
+  );
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.is_admin(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+-- ============================================
+-- STEP 2: Drop ALL existing policies on users table
+-- ============================================
 DROP POLICY IF EXISTS "Users can view own data" ON public.users;
 DROP POLICY IF EXISTS "Students can view own data" ON public.users;
 DROP POLICY IF EXISTS "Students can update own data" ON public.users;
@@ -39,21 +68,12 @@ WITH CHECK (auth.uid()::text = id::text);
 
 -- ============================================
 -- ADMIN POLICY: Admins can do everything
+-- Uses security definer function to prevent infinite recursion
 -- ============================================
 CREATE POLICY "Admins have full access to users"
 ON public.users FOR ALL
-USING (
-  EXISTS (
-    SELECT 1 FROM public.users
-    WHERE id::text = auth.uid()::text AND role = 'admin'
-  )
-)
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM public.users
-    WHERE id::text = auth.uid()::text AND role = 'admin'
-  )
-);
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 
 -- ============================================
 -- PARENT POLICY: Parents can view linked students

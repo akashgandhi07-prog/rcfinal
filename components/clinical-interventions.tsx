@@ -21,24 +21,24 @@ export function ClinicalInterventions() {
   ]
 
   return (
-    <section className="py-32 bg-slate-950">
-      <div className="container mx-auto px-6">
+    <section className="py-16 sm:py-24 md:py-32 bg-slate-950">
+      <div className="container mx-auto px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-16"
+          className="text-center mb-12 sm:mb-16"
         >
-          <h2 className="font-serif text-4xl md:text-5xl text-white mb-4 font-light">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white mb-3 sm:mb-4 font-light">
             Professional Interventions
           </h2>
-          <p className="text-slate-400 text-sm uppercase tracking-wider font-light">
+          <p className="text-slate-400 text-xs sm:text-sm uppercase tracking-wider font-light">
             Before & After
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-6xl mx-auto">
           {cases.map((caseStudy, index) => (
             <motion.div
               key={caseStudy.title}
@@ -46,10 +46,10 @@ export function ClinicalInterventions() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.2 }}
-              className="border border-white/10 bg-[#0B1120] p-12 space-y-6"
+              className="border border-white/10 bg-[#0B1120] p-6 sm:p-8 md:p-12 space-y-4 sm:space-y-6"
             >
-              <h3 className="font-serif text-2xl text-white font-light">{caseStudy.title}</h3>
-              <div className="space-y-4">
+              <h3 className="font-serif text-xl sm:text-2xl text-white font-light">{caseStudy.title}</h3>
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <p className="text-slate-400 text-sm uppercase tracking-wider mb-2 font-light">
                     Initial Presentation

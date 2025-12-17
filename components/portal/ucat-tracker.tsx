@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { getCurrentUser, getUCATMocks, createUCATMock, updateUCATMock, deleteUCATMock } from "@/lib/supabase/queries"
+import type { UCATMock as DBUCATMock } from "@/lib/supabase/types"
 
 interface UCATMock {
   id: string
@@ -40,128 +42,66 @@ interface UCATTrackerProps {
 }
 
 export function UCATTracker({ viewMode }: UCATTrackerProps) {
-  const [mocks, setMocks] = useState<UCATMock[]>([
-    {
-      id: "1",
-      date: "2026-01-15",
-      provider: "Medify Mock 1",
-      vr: 680,
-      dm: 720,
-      qr: 690,
-      sjt: "Band 1",
-      total: 2090,
-    },
-    {
-      id: "2",
-      date: "2026-01-22",
-      provider: "Official Mock A",
-      vr: 710,
-      dm: 730,
-      qr: 720,
-      sjt: "Band 1",
-      total: 2160,
-    },
-    {
-      id: "3",
-      date: "2026-02-05",
-      provider: "Medify Mock 2",
-      vr: 720,
-      dm: 750,
-      qr: 730,
-      sjt: "Band 1",
-      total: 2200,
-    },
-    {
-      id: "4",
-      date: "2026-02-12",
-      provider: "Official Mock B",
-      vr: 740,
-      dm: 760,
-      qr: 750,
-      sjt: "Band 1",
-      total: 2250,
-    },
-    {
-      id: "5",
-      date: "2026-02-19",
-      provider: "Medify Mock 3",
-      vr: 750,
-      dm: 770,
-      qr: 760,
-      sjt: "Band 1",
-      total: 2280,
-    },
-    {
-      id: "6",
-      date: "2026-02-26",
-      provider: "Official Mock C",
-      vr: 760,
-      dm: 780,
-      qr: 770,
-      sjt: "Band 1",
-      total: 2310,
-    },
-    {
-      id: "7",
-      date: "2026-03-05",
-      provider: "Medify Mock 4",
-      vr: 770,
-      dm: 790,
-      qr: 780,
-      sjt: "Band 1",
-      total: 2340,
-    },
-    {
-      id: "8",
-      date: "2026-03-12",
-      provider: "Official Mock D",
-      vr: 780,
-      dm: 800,
-      qr: 790,
-      sjt: "Band 1",
-      total: 2370,
-    },
-    {
-      id: "9",
-      date: "2026-03-19",
-      provider: "Medify Mock 5",
-      vr: 790,
-      dm: 810,
-      qr: 800,
-      sjt: "Band 1",
-      total: 2400,
-    },
-    {
-      id: "10",
-      date: "2026-03-26",
-      provider: "Official Mock E",
-      vr: 800,
-      dm: 820,
-      qr: 810,
-      sjt: "Band 1",
-      total: 2430,
-    },
-    {
-      id: "11",
-      date: "2026-04-02",
-      provider: "Medify Mock 6",
-      vr: 810,
-      dm: 830,
-      qr: 820,
-      sjt: "Band 1",
-      total: 2460,
-    },
-    {
-      id: "12",
-      date: "2026-04-09",
-      provider: "Official Mock F",
-      vr: 820,
-      dm: 840,
-      qr: 830,
-      sjt: "Band 1",
-      total: 2490,
-    },
-  ])
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [mocks, setMocks] = useState<UCATMock[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = await getCurrentUser()
+      if (user) {
+        setCurrentUserId(user.id)
+      }
+    }
+    loadUser()
+  }, [])
+
+  // Helper function to convert DB format to component format
+  const dbMockToComponent = (dbMock: DBUCATMock): UCATMock => ({
+    id: dbMock.id,
+    date: dbMock.date,
+    provider: dbMock.mock_name,
+    vr: dbMock.vr_score || 0,
+    dm: dbMock.dm_score || 0,
+    qr: dbMock.qr_score || 0,
+    sjt: dbMock.sjt_band || "Band 1",
+    total: dbMock.total_score || 0,
+  })
+
+  // Helper function to convert component format to DB format
+  const componentMockToDB = (mock: UCATMock): Omit<DBUCATMock, 'id' | 'user_id' | 'created_at' | 'updated_at'> => ({
+    date: mock.date,
+    mock_name: mock.provider,
+    vr_score: mock.vr,
+    dm_score: mock.dm,
+    qr_score: mock.qr,
+    ar_score: null,
+    total_score: mock.total,
+    sjt_band: mock.sjt,
+  })
+
+  // Load mocks from Supabase
+  useEffect(() => {
+    const loadMocks = async () => {
+      if (!currentUserId) {
+        setIsLoading(false)
+        return
+      }
+      
+      setIsLoading(true)
+      try {
+        const dbMocks = await getUCATMocks(currentUserId)
+        const componentMocks = dbMocks.map(dbMockToComponent)
+        setMocks(componentMocks)
+      } catch (error) {
+        console.error("Error loading UCAT mocks:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadMocks()
+  }, [currentUserId])
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -259,8 +199,10 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
     return !Number.isNaN(num) && num >= 300 && num <= 900
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!currentUserId) return
+    
     if (!isScoreValid(formData.vr) || !isScoreValid(formData.dm) || !isScoreValid(formData.qr)) {
       window.alert("Each subtest score (VR, DM, QR) must be between 300 and 900.")
       return
@@ -273,7 +215,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
     }
 
     const newMock: UCATMock = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // Temporary ID
       date: formData.date,
       provider: formData.provider,
       vr: Number(formData.vr),
@@ -283,13 +225,48 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       total,
     }
 
+    // Optimistically update UI
     setMocks([...mocks, newMock])
     setIsCreateDialogOpen(false)
     setFormData(emptyFormState)
+
+    // Save to Supabase
+    try {
+      const dbMock = componentMockToDB(newMock)
+      const savedMock = await createUCATMock(currentUserId, dbMock)
+      if (savedMock) {
+        // Update with real ID from database
+        setMocks(prev => prev.map(m => m.id === newMock.id ? dbMockToComponent(savedMock) : m))
+      } else {
+        // Revert on error
+        setMocks(mocks)
+        window.alert("Failed to save mock exam. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error saving mock:", error)
+      setMocks(mocks)
+      window.alert("Failed to save mock exam. Please try again.")
+    }
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    // Optimistically update UI
+    const originalMocks = mocks
     setMocks(mocks.filter((m) => m.id !== id))
+
+    // Delete from Supabase
+    try {
+      const success = await deleteUCATMock(id)
+      if (!success) {
+        // Revert on error
+        setMocks(originalMocks)
+        window.alert("Failed to delete mock exam. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error deleting mock:", error)
+      setMocks(originalMocks)
+      window.alert("Failed to delete mock exam. Please try again.")
+    }
   }
 
   const handleEditClick = (mock: UCATMock) => {
@@ -305,7 +282,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
     setIsEditDialogOpen(true)
   }
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingMock) return
 
@@ -335,9 +312,26 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
       total,
     }
 
+    // Optimistically update UI
+    const originalMocks = mocks
     setMocks(mocks.map((m) => (m.id === editingMock.id ? updated : m)))
     setIsEditDialogOpen(false)
     setEditingMock(null)
+
+    // Save to Supabase
+    try {
+      const dbUpdates = componentMockToDB(updated)
+      const savedMock = await updateUCATMock(editingMock.id, dbUpdates)
+      if (!savedMock) {
+        // Revert on error
+        setMocks(originalMocks)
+        window.alert("Failed to update mock exam. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error updating mock:", error)
+      setMocks(originalMocks)
+      window.alert("Failed to update mock exam. Please try again.")
+    }
   }
 
   const handleMiniSubmit = (e: React.FormEvent) => {
@@ -393,9 +387,29 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
     setShowFinalConfirm(true)
   }
 
-  const handleClearAllFinal = () => {
-    setMocks([])
-    setShowFinalConfirm(false)
+  const handleClearAllFinal = async () => {
+    if (!currentUserId) return
+    
+    // Delete all mocks from Supabase
+    const deletePromises = mocks.map(mock => deleteUCATMock(mock.id))
+    try {
+      await Promise.all(deletePromises)
+      setMocks([])
+      setShowFinalConfirm(false)
+    } catch (error) {
+      console.error("Error clearing mocks:", error)
+      window.alert("Failed to clear all mocks. Please try again.")
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <p className="text-slate-300 font-light">Loading UCAT mocks...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

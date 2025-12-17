@@ -11,8 +11,10 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log error to error reporting service
-    console.error("Application error:", error)
+    // Log error to error reporting service (server-side only, not exposed to user)
+    if (typeof window === "undefined" || process.env.NODE_ENV === "development") {
+      console.error("Application error:", error)
+    }
   }, [error])
 
   return (
@@ -41,6 +43,7 @@ export default function Error({
     </div>
   )
 }
+
 
 
 
