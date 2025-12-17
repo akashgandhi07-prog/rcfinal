@@ -30,11 +30,13 @@ export default function ResetPasswordPage() {
       setError(null)
 
       try {
-        // Wait a moment for Supabase to process the URL token if present
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
+        // Wait briefly for Supabase to process the URL token if present
+        await new Promise(resolve => setTimeout(resolve, 300))
+
         // Check if user has a valid session (Supabase auto-establishes session from reset link)
-        const { data: { user } } = await supabase.auth.getUser()
+        const verifyPromise = supabase.auth.getUser()
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: { user: null } }), 3000))
+        const { data: { user } } = (await Promise.race([verifyPromise, timeoutPromise])) as any
         
         // Check for URL parameters/fragments that indicate a reset link
         const accessToken = searchParams.get("access_token")
@@ -85,12 +87,15 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      })
+      const updatePromise = supabase.auth.updateUser({ password })
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Reset timed out. Please try again or request a new reset email.")), 8000)
+      )
+
+      const { error: updateError } = (await Promise.race([updatePromise, timeoutPromise])) as any
 
       if (updateError) {
-        setError(updateError.message)
+        setError(updateError.message || "Reset link may be invalid or expired. Please request a new reset email.")
         return
       }
 
@@ -99,9 +104,9 @@ export default function ResetPasswordPage() {
       setTimeout(() => {
         router.push("/portal")
       }, 2000)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Password reset error:", err)
-      setError("An error occurred. Please try again.")
+      setError(err?.message || "An error occurred. Please try again or request a new reset email.")
     } finally {
       setIsLoading(false)
     }
