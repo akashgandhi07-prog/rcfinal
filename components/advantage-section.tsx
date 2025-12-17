@@ -28,7 +28,7 @@ export function AdvantageSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="aspect-square bg-gradient-to-br from-slate-900 to-slate-950 border border-[#D4AF37]/20 flex items-center justify-center"
+            className="aspect-square bg-gradient-to-br from-slate-900 to-slate-950 border border-[#D4AF37]/20 rounded-3xl shadow-2xl shadow-black/40 flex items-center justify-center"
           >
             <div className="text-center p-12">
               <div className="text-6xl font-serif text-[#D4AF37] mb-4 font-light">3,000+</div>

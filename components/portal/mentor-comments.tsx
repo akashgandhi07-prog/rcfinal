@@ -7,8 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MessageSquare, Send, X, Edit2, Trash2 } from "lucide-react"
-import { createMentorComment, getMentorComments, updateMentorComment, deleteMentorComment } from "@/lib/supabase/queries"
-import { getCurrentUser } from "@/lib/supabase/queries"
+import { supabase } from "@/lib/supabase/client"
+import { createMentorComment, getMentorComments, updateMentorComment, deleteMentorComment, getCurrentUser, getUserById } from "@/lib/supabase/queries"
 import type { MentorComment, CommentType, CommentSection } from "@/lib/supabase/types"
 import type { User } from "@/lib/supabase/types"
 
@@ -29,16 +29,13 @@ export function MentorComments({ studentId, section, sectionItemId, viewMode, cu
   const [editingComment, setEditingComment] = useState<string | null>(null)
   const [editText, setEditText] = useState("")
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [impersonateUserId, setImpersonateUserId] = useState<string>("")
+  const [allMentors, setAllMentors] = useState<User[]>([])
 
   useEffect(() => {
     loadComments()
-    if (!currentUserId) {
-      loadCurrentUser()
-    } else {
-      // Fetch user details if we have ID
-      getCurrentUser().then(setCurrentUser)
-    }
-  }, [studentId, section, sectionItemId])
+    loadCurrentUser()
+  }, [studentId, section, sectionItemId, currentUserId])
 
   const loadComments = async () => {
     setIsLoading(true)
@@ -53,16 +50,48 @@ export function MentorComments({ studentId, section, sectionItemId, viewMode, cu
   }
 
   const loadCurrentUser = async () => {
-    const user = await getCurrentUser()
-    setCurrentUser(user)
+    try {
+      if (currentUserId) {
+        const user = await getUserById(currentUserId)
+        setCurrentUser(user)
+        return
+      }
+      const user = await getCurrentUser()
+      setCurrentUser(user)
+    } catch (error) {
+      console.error("Error loading current user for comments:", error)
+    }
   }
 
+  useEffect(() => {
+    const fetchMentors = async () => {
+      try {
+        // Reuse getAllUsers through supabase directly to keep dependency light
+        const { data, error } = await supabase.from("users").select("*").in("role", ["mentor", "admin"])
+        if (error) {
+          console.error("Error loading mentors for impersonation:", error)
+          return
+        }
+        setAllMentors((data || []) as User[])
+      } catch (err) {
+        console.error("Error loading mentors for impersonation:", err)
+      }
+    }
+    fetchMentors()
+  }, [])
+
   const handleAddComment = async () => {
-    if (!commentText.trim() || !currentUser || (currentUser.role !== "mentor" && currentUser.role !== "admin")) return
+    const authorId = impersonateUserId || currentUser?.id
+    const authorRole = impersonateUserId
+      ? allMentors.find((m) => m.id === impersonateUserId)?.role
+      : currentUser?.role
+
+    if (!commentText.trim() || !authorId || !authorRole) return
+    if (authorRole !== "mentor" && authorRole !== "admin") return
 
     try {
       await createMentorComment(
-        currentUser.id,
+        authorId,
         studentId,
         section,
         commentText,
@@ -141,6 +170,27 @@ export function MentorComments({ studentId, section, sectionItemId, viewMode, cu
 
           {showAddComment && isMentor && (
             <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              {currentUser?.role === "admin" && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-600 font-light">Act as (mentor/admin)</Label>
+                  <Select
+                    value={impersonateUserId}
+                    onValueChange={(value) => setImpersonateUserId(value)}
+                  >
+                    <SelectTrigger className="rounded-lg h-8 text-xs">
+                      <SelectValue placeholder="Self" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-lg">
+                      <SelectItem value="">Self</SelectItem>
+                      {allMentors.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.full_name || m.email} ({m.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-xs text-slate-600 font-light">Comment Type</Label>
                 <Select value={commentType} onValueChange={(value) => setCommentType(value as CommentType)}>

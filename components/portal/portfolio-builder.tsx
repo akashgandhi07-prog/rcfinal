@@ -114,6 +114,14 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
     extracurricular: [],
   })
 
+  const [todos, setTodos] = useState<Record<string, { id: string; text: string; done: boolean }[]>>({
+    work: [],
+    volunteering: [],
+    reading: [],
+    extracurricular: [],
+  })
+  const [newTodo, setNewTodo] = useState("")
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -142,6 +150,27 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
     { id: "reading", label: "Reading/Research", icon: BookOpen },
     { id: "extracurricular", label: "Extracurriculars", icon: Dumbbell },
   ]
+
+  const addTodo = () => {
+    if (!newTodo.trim()) return
+    const todo = { id: crypto.randomUUID(), text: newTodo.trim(), done: false }
+    setTodos({ ...todos, [activeTab]: [...todos[activeTab], todo] })
+    setNewTodo("")
+  }
+
+  const toggleTodo = (id: string) => {
+    setTodos({
+      ...todos,
+      [activeTab]: todos[activeTab].map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    })
+  }
+
+  const deleteTodo = (id: string) => {
+    setTodos({
+      ...todos,
+      [activeTab]: todos[activeTab].filter((t) => t.id !== id),
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -268,6 +297,96 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
             )
           })}
         </TabsList>
+
+        {/* Overall comments for the active section */}
+        {displayStudentId && (
+          <div className="mt-6">
+            <Card className="bg-white border-slate-200 rounded-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-light text-slate-700 flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#D4AF37]" />
+                  Overall Comments
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MentorComments
+                  studentId={displayStudentId}
+                  section={
+                    activeTab === "work"
+                      ? "work_experience"
+                      : activeTab === "volunteering"
+                      ? "volunteering"
+                      : activeTab === "extracurricular"
+                      ? "supracurricular"
+                      : "portfolio"
+                  }
+                  sectionItemId={null}
+                  viewMode={viewMode}
+                  currentUserId={currentUserId || undefined}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* To-Do list for the active section */}
+        <div className="mt-4">
+          <Card className="bg-white border-slate-200 rounded-lg">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-light text-slate-700 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-[#D4AF37]" />
+                To-Do
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {canEdit && (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    value={newTodo}
+                    onChange={(e) => setNewTodo(e.target.value)}
+                    placeholder="Add a task..."
+                    className="h-9"
+                  />
+                  <Button size="sm" onClick={addTodo} className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90">
+                    Add
+                  </Button>
+                </div>
+              )}
+              {todos[activeTab].length === 0 ? (
+                <p className="text-xs text-slate-500 font-light">No tasks yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {todos[activeTab].map((todo) => (
+                    <div
+                      key={todo.id}
+                      className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
+                    >
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={todo.done}
+                          onChange={() => toggleTodo(todo.id)}
+                          className="h-4 w-4"
+                          disabled={!canEdit}
+                        />
+                        <span className={todo.done ? "line-through text-slate-400" : ""}>{todo.text}</span>
+                      </label>
+                      {canEdit && (
+                        <button
+                          onClick={() => deleteTodo(todo.id)}
+                          className="text-red-500 hover:text-red-700 text-xs"
+                          aria-label="Delete task"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <TabsContent key={activeTab} value={activeTab} className="mt-6">
           {activities[activeTab].length === 0 ? (

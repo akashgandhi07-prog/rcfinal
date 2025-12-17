@@ -8,8 +8,10 @@ import type { ViewMode, ActiveView } from "@/app/portal/page"
 interface DashboardShellProps {
   children: React.ReactNode
   studentName: string
+  courseLabel?: string
   viewMode: ViewMode
   isAdmin: boolean
+  isSuperAdmin?: boolean
   activeView: ActiveView
   onViewChange: (view: ActiveView) => void
   onViewModeChange: (mode: ViewMode) => void
@@ -19,8 +21,10 @@ interface DashboardShellProps {
 export function DashboardShell({
   children,
   studentName,
+  courseLabel,
   viewMode,
   isAdmin,
+  isSuperAdmin = false,
   activeView,
   onViewChange,
   onViewModeChange,
@@ -37,6 +41,7 @@ export function DashboardShell({
         viewMode={viewMode} 
         showUCAT={showUCAT} 
         isAdmin={isAdmin}
+        isSuperAdmin={isSuperAdmin}
         isMobileOpen={isMobileMenuOpen}
         onMobileClose={() => setIsMobileMenuOpen(false)}
       />
@@ -44,6 +49,7 @@ export function DashboardShell({
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
         <Header
           studentName={studentName}
+          courseLabel={courseLabel}
           viewMode={viewMode}
           isAdmin={isAdmin}
           onViewModeChange={onViewModeChange}

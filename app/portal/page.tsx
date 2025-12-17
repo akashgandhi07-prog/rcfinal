@@ -33,6 +33,7 @@ export default function PortalPage() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard")
   const [viewMode, setViewMode] = useState<ViewMode>("student")
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [showUCAT, setShowUCAT] = useState(true)
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function PortalPage() {
     if (user) {
       // Check if user is admin
       setIsAdmin(user.role === "admin")
+      setIsSuperAdmin(user.email === "akashgandhi07@gmail.com")
       if (user.role === "admin" && activeView !== "admin") {
         setActiveView("admin")
       }
@@ -130,6 +132,18 @@ export default function PortalPage() {
         setUser(null)
         setIsLoading(false)
         return
+      }
+
+      // Auto-elevate primary admin
+      if (currentUser.email === "akashgandhi07@gmail.com" && currentUser.role !== "admin") {
+        const updated = await updateUser(currentUser.id, {
+          role: "admin",
+          approval_status: "approved",
+          onboarding_status: "complete",
+        })
+        if (updated) {
+          setUser(updated)
+        }
       }
 
       const isAdmin = currentUser.role === "admin"
@@ -339,12 +353,17 @@ export default function PortalPage() {
   // Determine which user's data to show
   const displayUser = selectedStudent || user
   const studentName = displayUser?.full_name || "Student"
+  const courseLabel = displayUser?.target_course
+    ? `${displayUser.target_course.charAt(0).toUpperCase()}${displayUser.target_course.slice(1)}${displayUser.entry_year ? ` ${displayUser.entry_year} Entry` : ""}`
+    : undefined
 
   return (
     <DashboardShell
       studentName={studentName}
+      courseLabel={courseLabel}
       viewMode={viewMode}
       isAdmin={isAdmin}
+      isSuperAdmin={isSuperAdmin}
       activeView={activeView}
       onViewChange={setActiveView}
       onViewModeChange={setViewMode}

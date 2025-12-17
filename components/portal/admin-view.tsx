@@ -25,6 +25,7 @@ interface UserRelationship {
 }
 
 export function AdminView({ onImpersonate }: AdminViewProps) {
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [students, setStudents] = useState<User[]>([])
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [relationships, setRelationships] = useState<UserRelationship[]>([])
@@ -40,6 +41,17 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
   const [activeTab, setActiveTab] = useState<"users" | "relationships">("users")
 
   useEffect(() => {
+    const checkSuperAdmin = async () => {
+      try {
+        const { data } = await supabase.auth.getUser()
+        const email = data.user?.email || ""
+        setIsSuperAdmin(email === "akashgandhi07@gmail.com")
+      } catch {
+        setIsSuperAdmin(false)
+      }
+    }
+
+    checkSuperAdmin()
     loadData()
   }, [])
 
@@ -120,6 +132,16 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
       alert("User updated successfully!")
     } catch (error) {
       console.error("Error updating user:", error)
+      alert("Failed to update user. Please try again.")
+    }
+  }
+
+  const handleQuickUpdate = async (userId: string, updates: Partial<User>) => {
+    try {
+      await updateUser(userId, updates)
+      await loadData()
+    } catch (error) {
+      console.error("Error quick-updating user:", error)
       alert("Failed to update user. Please try again.")
     }
   }
@@ -256,6 +278,12 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
             <Users size={16} className="mr-2" />
             All Users
           </TabsTrigger>
+          {isSuperAdmin && (
+            <TabsTrigger value="super" className="rounded-md">
+              <Eye size={16} className="mr-2" />
+              Super Admin
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="relationships" className="space-y-6 mt-6">
@@ -624,6 +652,84 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
       </Card>
 
         </TabsContent>
+
+        {isSuperAdmin && (
+          <TabsContent value="super" className="space-y-6 mt-6">
+            <Card className="bg-white border-slate-200 rounded-lg">
+              <CardHeader>
+                <CardTitle className="text-lg font-light text-slate-900">Super Admin — All Users</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <p className="text-sm text-slate-500 font-light">Loading...</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-slate-200">
+                        <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Name</TableHead>
+                        <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Email</TableHead>
+                        <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Role</TableHead>
+                        <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Status</TableHead>
+                        <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allUsers.map((user) => (
+                        <TableRow key={user.id} className="border-slate-200">
+                          <TableCell className="text-sm text-slate-900 font-light">{user.full_name || "—"}</TableCell>
+                          <TableCell className="text-sm text-slate-700 font-light">{user.email}</TableCell>
+                          <TableCell className="text-sm text-slate-700 font-light">
+                            <Select
+                              value={user.role}
+                              onValueChange={(value) => handleQuickUpdate(user.id, { role: value as UserRole })}
+                            >
+                              <SelectTrigger className="rounded-lg h-9 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-lg">
+                                <SelectItem value="student">Student</SelectItem>
+                                <SelectItem value="parent">Parent</SelectItem>
+                                <SelectItem value="mentor">Mentor</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-700 font-light">
+                            <Select
+                              value={(user.approval_status as ApprovalStatus) || "approved"}
+                              onValueChange={(value) => handleQuickUpdate(user.id, { approval_status: value as ApprovalStatus })}
+                            >
+                              <SelectTrigger className="rounded-lg h-9 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-lg">
+                                <SelectItem value="approved">Approved</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="rejected">Rejected</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-700 font-light">
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onImpersonate(user.id)}
+                                className="rounded-lg text-xs"
+                              >
+                                Impersonate
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Link Parent Dialog */}

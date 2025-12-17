@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface UCATMock {
   id: string
@@ -21,6 +22,16 @@ interface UCATMock {
   qr: number
   sjt: string
   total: number
+}
+
+type MiniMockType = "VR" | "DM" | "QR" | "SJT"
+
+interface MiniMock {
+  id: string
+  date: string
+  type: MiniMockType
+  score?: number
+  band?: string
 }
 
 interface UCATTrackerProps {
@@ -155,6 +166,8 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingMock, setEditingMock] = useState<UCATMock | null>(null)
+  const [isMiniDialogOpen, setIsMiniDialogOpen] = useState(false)
+  const [editingMini, setEditingMini] = useState<MiniMock | null>(null)
   const [examDate, setExamDate] = useState<string>("")
   const [daysUntilExam, setDaysUntilExam] = useState<number | null>(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
@@ -172,9 +185,40 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
   const [formData, setFormData] = useState(emptyFormState)
   const [editFormData, setEditFormData] = useState(emptyFormState)
 
+  const [miniMocks, setMiniMocks] = useState<MiniMock[]>([
+    { id: "m1", date: "2026-02-01", type: "VR", score: 760 },
+    { id: "m2", date: "2026-02-03", type: "DM", score: 750 },
+    { id: "m3", date: "2026-02-05", type: "QR", score: 770 },
+    { id: "m4", date: "2026-02-08", type: "SJT", band: "Band 1" },
+  ])
+
+  const miniEmptyState = {
+    date: "",
+    type: "" as MiniMockType,
+    score: "",
+    band: "",
+  }
+  const [miniForm, setMiniForm] = useState(miniEmptyState)
+
   const highestScore = Math.max(...mocks.map((m) => m.total))
   const averageBand = "Band 1" // Simplified - in real app, calculate from SJT bands
   const mocksCompleted = mocks.length
+  const avgTotal =
+    mocks.length > 0 ? Math.round(mocks.reduce((sum, m) => sum + m.total, 0) / mocks.length) : 0
+  const last3Avg =
+    mocks.length > 0
+      ? Math.round(
+          mocks
+            .slice(-3)
+            .reduce((sum, m) => sum + m.total, 0) / Math.min(3, mocks.length)
+        )
+      : 0
+
+  const miniNumeric = miniMocks.filter((m) => m.type !== "SJT" && typeof m.score === "number") as Array<
+    MiniMock & { score: number }
+  >
+  const miniAvg =
+    miniNumeric.length > 0 ? Math.round(miniNumeric.reduce((s, m) => s + m.score, 0) / miniNumeric.length) : 0
 
   // Load exam date from localStorage on mount
   useEffect(() => {
@@ -294,6 +338,50 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
     setMocks(mocks.map((m) => (m.id === editingMock.id ? updated : m)))
     setIsEditDialogOpen(false)
     setEditingMock(null)
+  }
+
+  const handleMiniSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!miniForm.date || !miniForm.type) return
+
+    const newMini: MiniMock = {
+      id: crypto.randomUUID(),
+      date: miniForm.date,
+      type: miniForm.type,
+      score: miniForm.type === "SJT" ? undefined : Number(miniForm.score),
+      band: miniForm.type === "SJT" ? miniForm.band || "Band 1" : undefined,
+    }
+
+    setMiniMocks((prev) => [...prev, newMini].sort((a, b) => a.date.localeCompare(b.date)))
+    setMiniForm(miniEmptyState)
+    setIsMiniDialogOpen(false)
+    setEditingMini(null)
+  }
+
+  const handleMiniEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingMini) return
+
+    const updated: MiniMock = {
+      ...editingMini,
+      date: miniForm.date,
+      type: miniForm.type,
+      score: miniForm.type === "SJT" ? undefined : Number(miniForm.score),
+      band: miniForm.type === "SJT" ? miniForm.band || "Band 1" : undefined,
+    }
+
+    setMiniMocks((prev) =>
+      prev
+        .map((m) => (m.id === editingMini.id ? updated : m))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    )
+    setMiniForm(miniEmptyState)
+    setEditingMini(null)
+    setIsMiniDialogOpen(false)
+  }
+
+  const handleMiniDelete = (id: string) => {
+    setMiniMocks((prev) => prev.filter((m) => m.id !== id))
   }
 
   const handleClearAllClick = () => {
@@ -482,10 +570,113 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
             </DialogContent>
           </Dialog>
         )}
+        {viewMode === "student" && (
+          <Dialog open={isMiniDialogOpen} onOpenChange={setIsMiniDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="border-[#D4AF37]/60 text-[#D4AF37] hover:bg-[#D4AF37]/10 ml-3"
+                onClick={() => {
+                  setEditingMini(null)
+                  setMiniForm(miniEmptyState)
+                }}
+              >
+                <Plus size={16} className="mr-2" />
+                Log Mini Mock
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-[#0B1120] border-slate-800 max-w-xl">
+              <DialogHeader>
+                <DialogTitle className="text-[#D4AF37] font-serif">
+                  {editingMini ? "Edit Mini Mock" : "Add Mini Mock"}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={editingMini ? handleMiniEditSubmit : handleMiniSubmit} className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Date</Label>
+                    <Input
+                      type="date"
+                      value={miniForm.date}
+                      onChange={(e) => setMiniForm({ ...miniForm, date: e.target.value })}
+                      className="bg-slate-900 border-slate-700 text-white"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Subtest</Label>
+                    <Select
+                      value={miniForm.type}
+                      onValueChange={(value) => setMiniForm({ ...miniForm, type: value as MiniMockType })}
+                    >
+                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                        <SelectValue placeholder="Select subtest" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="VR">VR</SelectItem>
+                        <SelectItem value="DM">DM</SelectItem>
+                        <SelectItem value="QR">QR</SelectItem>
+                        <SelectItem value="SJT">SJT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {miniForm.type === "SJT" ? (
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">SJT Band</Label>
+                    <Select value={miniForm.band} onValueChange={(value) => setMiniForm({ ...miniForm, band: value })}>
+                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                        <SelectValue placeholder="Select band" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="Band 1">Band 1</SelectItem>
+                        <SelectItem value="Band 2">Band 2</SelectItem>
+                        <SelectItem value="Band 3">Band 3</SelectItem>
+                        <SelectItem value="Band 4">Band 4</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Score (300-900)</Label>
+                    <Input
+                      type="number"
+                      min={300}
+                      max={900}
+                      value={miniForm.score}
+                      onChange={(e) => setMiniForm({ ...miniForm, score: e.target.value })}
+                      className="bg-slate-900 border-slate-700 text-white"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsMiniDialogOpen(false)
+                      setEditingMini(null)
+                      setMiniForm(miniEmptyState)
+                    }}
+                    className="border-slate-700"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90">
+                    {editingMini ? "Save Changes" : "Save Mini Mock"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
         <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-light text-slate-400">Highest Score</CardTitle>
@@ -518,7 +709,114 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
             <p className="text-xs text-slate-500 mt-1">Total attempts</p>
           </CardContent>
         </Card>
+
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-light text-slate-400">Avg (All Mocks)</CardTitle>
+            <ClipboardList size={20} className="text-[#D4AF37]" strokeWidth={1.5} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-light text-slate-100">{avgTotal}</div>
+            <p className="text-xs text-slate-500 mt-1">Overall average total</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-light text-slate-400">Last 3 Avg / Mini Avg</CardTitle>
+            <ClipboardList size={20} className="text-[#D4AF37]" strokeWidth={1.5} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-light text-slate-100">Mocks: {last3Avg}</div>
+            <p className="text-xs text-slate-500">Mini: {miniAvg || "—"}</p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Mini Mocks */}
+      <Card className="bg-white border-slate-200 rounded-lg">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-light text-slate-900">Mini Mocks (VR, DM, QR, SJT)</CardTitle>
+          {viewMode === "student" && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditingMini(null)
+                setMiniForm(miniEmptyState)
+                setIsMiniDialogOpen(true)
+              }}
+              className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg font-light"
+            >
+              <Plus size={14} className="mr-1" />
+              Log Mini Mock
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-slate-200">
+                <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Date</TableHead>
+                <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Type</TableHead>
+                <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light">Score / Band</TableHead>
+                <TableHead className="text-xs text-slate-500 uppercase tracking-wider font-light text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {miniMocks.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-sm text-slate-500 font-light py-4">
+                    No mini mocks logged yet.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                miniMocks.map((mini) => (
+                  <TableRow key={mini.id} className="border-slate-200">
+                    <TableCell className="text-sm text-slate-900 font-light">
+                      {new Date(mini.date).toLocaleDateString("en-GB")}
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-700 font-light">{mini.type}</TableCell>
+                    <TableCell className="text-sm text-slate-700 font-light">
+                      {mini.type === "SJT" ? mini.band : mini.score}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {viewMode === "student" && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingMini(mini)
+                                setMiniForm({
+                                  date: mini.date,
+                                  type: mini.type,
+                                  score: mini.score ? String(mini.score) : "",
+                                  band: mini.band || "",
+                                })
+                                setIsMiniDialogOpen(true)
+                              }}
+                              className="text-slate-500 hover:text-slate-800"
+                              aria-label="Edit mini mock"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleMiniDelete(mini.id)}
+                              className="text-red-500 hover:text-red-700"
+                              aria-label="Delete mini mock"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Chart */}
       <Card className="bg-slate-900/50 border-slate-800">

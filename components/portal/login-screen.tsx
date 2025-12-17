@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { UserRole } from "@/lib/supabase/types"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, X } from "lucide-react"
 
 interface LoginScreenProps {
   onLogin?: () => void
@@ -332,7 +332,15 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#0B1120] flex items-center justify-center px-4 py-6 sm:p-6">
-      <Card className="w-full max-w-md bg-white/10 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl border border-slate-700/30">
+      <Card className="relative w-full max-w-md bg-white/10 backdrop-blur-xl border-slate-700/50 rounded-2xl shadow-2xl border border-slate-700/30">
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="absolute right-3 top-3 p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
         <CardHeader className="text-center space-y-4 pb-6">
           <div className="space-y-2">
             <h1 className="text-3xl font-serif text-[#D4AF37] tracking-widest mb-2 font-light">

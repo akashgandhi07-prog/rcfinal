@@ -15,8 +15,8 @@ export function Footer() {
 
           {/* Contact */}
           <div className="text-slate-500 text-xs font-light">
-            <a href="mailto:privateoffice@regentsconsultancy.co.uk" className="hover:text-amber-400 transition-colors">
-              privateoffice@regentsconsultancy.co.uk
+            <a href="mailto:info@regentsconsultancy.co.uk" className="hover:text-amber-400 transition-colors">
+              info@regentsconsultancy.co.uk
             </a>
           </div>
 

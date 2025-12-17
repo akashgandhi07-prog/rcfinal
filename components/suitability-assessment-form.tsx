@@ -125,7 +125,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="bg-white border-slate-200 max-w-4xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto rounded-2xl px-4 py-5 md:px-10 md:py-8">
+      <DialogContent className="bg-white border-slate-200 max-w-4xl w-[96vw] md:w-full max-h-[90vh] overflow-y-auto rounded-2xl px-3 py-5 md:px-10 md:py-8">
         <DialogHeader>
           <DialogTitle className="text-2xl md:text-3xl font-serif text-slate-900 font-light">
             Apply for Suitability Assessment
@@ -150,12 +150,12 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
         <form onSubmit={handleSubmit} className="mt-6 space-y-8">
           {/* Step 1: Personal Information */}
           {step === 1 && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <h3 className="text-sm font-light text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-2">
               Personal Information
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
               <div className="space-y-2">
                 <Label htmlFor="firstName" className="text-sm text-slate-700 font-light">
                   First Name <span className="text-red-500">*</span>
@@ -183,7 +183,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm text-slate-700 font-light">
                   Email <span className="text-red-500">*</span>
@@ -198,7 +198,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                 />
               </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="phoneNumber" className="text-sm text-slate-700 font-light">
                 Phone Number <span className="text-red-500">*</span>
               </Label>
@@ -206,6 +206,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                 id="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={(val) => updateField("phoneNumber", val)}
+                className="w-full max-w-full"
                 required
               />
             </div>

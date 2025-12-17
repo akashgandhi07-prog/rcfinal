@@ -9,11 +9,12 @@ interface SidebarProps {
   viewMode: ViewMode
   showUCAT?: boolean
   isAdmin?: boolean
+  isSuperAdmin?: boolean
   isMobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true, isAdmin = false, isMobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true, isAdmin = false, isSuperAdmin = false, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const navItems = [
     { id: "dashboard" as ActiveView, icon: LayoutDashboard, label: "Overview" },
     { id: "profile" as ActiveView, icon: User, label: "My Profile" },
@@ -86,7 +87,7 @@ export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true, i
       </nav>
 
       {/* Admin Section */}
-      {isAdmin && (
+      {(isAdmin || isSuperAdmin) && (
         <div className="p-4 border-t border-slate-800/50 mt-auto">
           <button
             onClick={() => {
@@ -100,7 +101,9 @@ export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true, i
             }`}
           >
             <Shield size={20} strokeWidth={1.5} />
-            <span className="text-xs font-light uppercase tracking-wider">Consultant Access</span>
+            <span className="text-xs font-light uppercase tracking-wider">
+              {isSuperAdmin ? "Super Admin" : "Consultant Access"}
+            </span>
           </button>
         </div>
       )}
@@ -112,8 +115,8 @@ export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true, i
             <User size={20} className="text-slate-300" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-light text-slate-200">Ella Lewis</p>
-            <p className="text-xs text-slate-400 capitalize font-light">{viewMode}</p>
+            <p className="text-sm font-light text-slate-200 truncate">{/* user name handled in header */}</p>
+            <p className="text-xs text-slate-400 capitalize font-light truncate">{viewMode}</p>
           </div>
         </div>
       </div>
