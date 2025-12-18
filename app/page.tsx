@@ -1,6 +1,7 @@
 import { Navigation } from "@/components/navigation"
 import { HeroSection } from "@/components/hero-section"
 import { TrustedDestinations } from "@/components/trusted-destinations"
+import { ClinicalTrajectory } from "@/components/clinical-trajectory"
 import { StrategicRoadmap } from "@/components/strategic-roadmap"
 import { PrivateOfficeProtocol } from "@/components/private-office-protocol"
 import { PostOfferGuarantee } from "@/components/post-offer-guarantee"
@@ -23,6 +24,7 @@ export default function Page() {
       <main id="main-content" className="overflow-x-hidden max-w-full" tabIndex={-1}>
         <HeroSection />
         <TrustedDestinations />
+        <ClinicalTrajectory />
         <StrategicRoadmap />
         <PrivateOfficeProtocol />
         <PostOfferGuarantee />

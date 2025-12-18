@@ -52,7 +52,7 @@ export function StrategicRoadmap() {
           transition={{ duration: 0.8 }}
           className="text-center mb-12 sm:mb-16 md:mb-20"
         >
-          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white mb-3 sm:mb-4 font-light">The Strategic Roadmap</h2>
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white mb-3 sm:mb-4 font-light">The Candidacy Roadmap (Year 12-13)</h2>
         </motion.div>
 
         <div className="max-w-4xl mx-auto relative">

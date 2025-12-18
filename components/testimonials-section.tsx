@@ -17,6 +17,18 @@ const testimonials = [
     quote: "Only Regent's offered actual surgeons. The interview prep gave her the confidence of a doctor. Working with practicing clinicians who understand both the academic requirements and the real-world demands of medical practice was invaluable. Her interview performance was transformed, and she secured her first-choice placement.",
     attribution: "Parent of Dental Student, KCL",
   },
+  {
+    quote: "As a Head of Sixth Form, I am often skeptical of external agencies. Regent's is different. They do not just 'tutor'; they mentor students into the mindset of a clinician. Their strategic input on A-Level choices and work experience has been invaluable to our highest-potential medics.",
+    attribution: "Director of Studies, Leading UK Boarding School",
+  },
+  {
+    quote: "What sets Regent's apart is their team of qualified dentists. My daughter worked directly with a GDC registered dentist who understood the unique demands of dental school admissions. The personal statement guidance and interview preparation were exceptional. She received offers from multiple dental schools, including her first choice at King's College London.",
+    attribution: "Parent of Dental Student, Multiple Offers",
+  },
+  {
+    quote: "The veterinary mentorship was outstanding. Working with a qualified RCVS registered vet provided insights that simply cannot be found elsewhere. The understanding of veterinary school requirements, combined with practical experience in clinical settings, gave our daughter a significant advantage. She secured her place at the Royal Veterinary College with confidence.",
+    attribution: "Parent of Veterinary Student, RVC",
+  },
 ]
 
 export function TestimonialsSection() {
