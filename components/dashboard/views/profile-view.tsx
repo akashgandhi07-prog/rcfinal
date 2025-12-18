@@ -8,13 +8,15 @@ import { PhoneInput } from "@/components/ui/phone-input"
 import { Label } from "@/components/ui/label"
 import { MatteInput } from "@/components/ui/matte-input"
 import { MatteTextarea } from "@/components/ui/matte-textarea"
-import { User, GraduationCap, Shield, Edit2, Save, X } from "lucide-react"
+import { User, GraduationCap, Shield, Edit2, Save, X, FileText } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { getCurrentUser, updateUser } from "@/lib/supabase/queries"
 import type { User as UserType } from "@/lib/supabase/types"
+import { DocumentUpload } from "@/components/portal/document-upload"
+import { DocumentList } from "@/components/portal/document-list"
 
 interface ProfileViewProps {
-  viewMode: "student" | "parent"
+  viewMode: "student" | "parent" | "mentor"
   userData?: UserType | null
 }
 
@@ -68,7 +70,8 @@ export function ProfileView({ viewMode, userData }: ProfileViewProps) {
   const loadUserData = async () => {
     setIsLoading(true)
     try {
-      const currentUser = await getCurrentUser()
+      // Force refresh to get latest data after updates
+      const currentUser = await getCurrentUser(true)
       if (currentUser) {
         setUser(currentUser)
         setFormData({
@@ -149,7 +152,7 @@ export function ProfileView({ viewMode, userData }: ProfileViewProps) {
     setIsEditing(false)
   }
 
-  const canEdit = viewMode === "student"
+  const canEdit = viewMode === "student" || viewMode === "parent" || viewMode === "mentor"
 
   if (isLoading) {
     return (
@@ -539,6 +542,77 @@ export function ProfileView({ viewMode, userData }: ProfileViewProps) {
                 Client ID
               </p>
               <p className="text-sm text-slate-900 font-medium">{user.client_id || "—"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Documents Section */}
+      <Card className="bg-white border-slate-200 rounded-none">
+        <CardHeader className="border-b border-slate-200 pb-3">
+          <CardTitle className="text-base font-light text-slate-900 flex items-center gap-2">
+            <FileText size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
+            <span className="uppercase tracking-wider text-sm">Documents</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4 space-y-6">
+          {/* Personal Statement */}
+          <div>
+            <h3 className="text-sm font-medium text-slate-900 mb-3">Personal Statement</h3>
+            {canEdit && <DocumentUpload userId={user.id} category="personal_statement" onUploadComplete={loadUserData} />}
+            <div className="mt-3">
+              <DocumentList 
+                userId={user.id} 
+                category="personal_statement" 
+                viewMode={viewMode}
+                canEdit={canEdit}
+                onDocumentDeleted={loadUserData}
+              />
+            </div>
+          </div>
+
+          {/* CV */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-sm font-medium text-slate-900 mb-3">CV</h3>
+            {canEdit && <DocumentUpload userId={user.id} category="cv" onUploadComplete={loadUserData} />}
+            <div className="mt-3">
+              <DocumentList 
+                userId={user.id} 
+                category="cv" 
+                viewMode={viewMode}
+                canEdit={canEdit}
+                onDocumentDeleted={loadUserData}
+              />
+            </div>
+          </div>
+
+          {/* Grades */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-sm font-medium text-slate-900 mb-3">Grades</h3>
+            {canEdit && <DocumentUpload userId={user.id} category="grades" onUploadComplete={loadUserData} />}
+            <div className="mt-3">
+              <DocumentList 
+                userId={user.id} 
+                category="grades" 
+                viewMode={viewMode}
+                canEdit={canEdit}
+                onDocumentDeleted={loadUserData}
+              />
+            </div>
+          </div>
+
+          {/* Other Documents */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-sm font-medium text-slate-900 mb-3">Other Documents</h3>
+            {canEdit && <DocumentUpload userId={user.id} category="other" onUploadComplete={loadUserData} />}
+            <div className="mt-3">
+              <DocumentList 
+                userId={user.id} 
+                category="other" 
+                viewMode={viewMode}
+                canEdit={canEdit}
+                onDocumentDeleted={loadUserData}
+              />
             </div>
           </div>
         </CardContent>

@@ -2,6 +2,9 @@
 
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { logger } from "@/lib/utils/logger"
+import { clearUserCache } from "@/lib/supabase/queries"
+import { supabase } from "@/lib/supabase/client"
 
 export default function PortalError({
   error,
@@ -11,11 +14,25 @@ export default function PortalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log error to error reporting service (server-side only, not exposed to user)
-    if (typeof window === "undefined" || process.env.NODE_ENV === "development") {
-      console.error("Portal error:", error)
+    // Log error
+    logger.error("Portal error", error)
+    
+    // Clear user cache to prevent stale state
+    clearUserCache()
+    
+    // Clear any problematic session state
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("admin_access_granted")
+      sessionStorage.removeItem("admin_access_timestamp")
     }
   }, [error])
+
+  const handleReload = async () => {
+    // Clear cache and reload
+    clearUserCache()
+    // Don't sign out - just reload to let user try again
+    window.location.href = "/portal"
+  }
 
   return (
     <div className="min-h-screen bg-[#0B1120] flex items-center justify-center p-6">
@@ -32,7 +49,7 @@ export default function PortalError({
             Try again
           </Button>
           <Button
-            onClick={() => window.location.href = "/portal"}
+            onClick={handleReload}
             variant="outline"
             className="border-slate-600 text-slate-300 hover:bg-slate-800 rounded-lg font-light"
           >

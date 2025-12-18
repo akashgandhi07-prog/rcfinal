@@ -3,9 +3,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MapPin, BookOpen, ShieldCheck, User as UserIcon, ClipboardCheck } from "lucide-react"
 import { CommentsFeed } from "./comments-feed"
+import { DashboardWidgets } from "./dashboard-widgets"
 import { getCurrentUser, getUserById } from "@/lib/supabase/queries"
 import { useEffect, useState } from "react"
 import type { User } from "@/lib/supabase/types"
+import { logger } from "@/lib/utils/logger"
 
 interface DashboardViewProps {
   viewMode: "student" | "parent" | "mentor"
@@ -17,24 +19,55 @@ export function DashboardView({ viewMode, studentId }: DashboardViewProps) {
   const [studentData, setStudentData] = useState<User | null>(null)
 
   useEffect(() => {
+    let mounted = true
+    
+    // Use a small delay to let auth provider initialize first
     const loadUser = async () => {
-      const user = await getCurrentUser()
-      if (user) {
-        setCurrentUserId(user.id)
+      // Small delay to avoid race condition with auth provider
+      await new Promise(resolve => setTimeout(resolve, 100))
+      if (!mounted) return
+      
+      try {
+        const user = await getCurrentUser()
+        if (mounted && user) {
+          setCurrentUserId(user.id)
+        }
+      } catch (error) {
+        if (mounted) {
+          logger.error("Error loading current user in dashboard view", error)
+        }
       }
     }
     loadUser()
+    
+    return () => {
+      mounted = false
+    }
   }, [])
 
   useEffect(() => {
+    let mounted = true
+    
     const loadStudentData = async () => {
       const displayId = studentId || currentUserId
-      if (displayId) {
+      if (!displayId || !mounted) return
+      
+      try {
         const data = await getUserById(displayId)
-        setStudentData(data)
+        if (mounted) {
+          setStudentData(data)
+        }
+      } catch (error) {
+        if (mounted) {
+          logger.error("Error loading student data", error, { studentId: displayId })
+        }
       }
     }
     loadStudentData()
+    
+    return () => {
+      mounted = false
+    }
   }, [studentId, currentUserId])
 
   const displayStudentId = studentId || currentUserId
@@ -51,6 +84,11 @@ export function DashboardView({ viewMode, studentId }: DashboardViewProps) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Dashboard Widgets */}
+      {displayStudentId && (
+        <DashboardWidgets studentId={displayStudentId} viewMode={viewMode} />
+      )}
+
       <Card className="bg-white border-slate-200 rounded-none">
         <CardHeader className="px-4 sm:px-6">
           <CardTitle className="text-base sm:text-lg font-light text-slate-900">Overview</CardTitle>

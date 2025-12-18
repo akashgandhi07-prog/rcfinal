@@ -93,18 +93,17 @@ export function validatePasswordStrength(password: string): PasswordStrength {
   if (hasNumbers) score++
   if (hasSpecial) score++
 
-  // Cap at 4
-  score = Math.min(score, 4) as 0 | 1 | 2 | 3 | 4
-
   // Provide feedback
   if (!hasLowercase) feedback.push("Add lowercase letters")
   if (!hasUppercase) feedback.push("Add uppercase letters")
   if (!hasNumbers) feedback.push("Add numbers")
   if (!hasSpecial) feedback.push("Add special characters")
 
-  const isValid = score >= 2 && password.length >= 8
+  // Cap at 4 and cast to valid type
+  const finalScore = Math.min(score, 4)
+  const isValid = finalScore >= 2 && password.length >= 8
 
-  return { score, feedback, isValid }
+  return { score: finalScore as 0 | 1 | 2 | 3 | 4, feedback, isValid }
 }
 
 

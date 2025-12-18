@@ -19,7 +19,7 @@ export function AdvantageSection() {
               3,000+ successful applicants to deliver exceptional results for our private clients.
             </p>
             <p className="text-slate-300 text-lg leading-relaxed font-light">
-              We partner with leading international schools and admissions counsellors worldwide, serving as the expert authority on UK medical school admissions. Our team provides strategic consultation and training to counsellors, ensuring they can offer their students the most current and effective guidance for securing placements at top-tier UK medical, dental, and veterinary schools.
+              We partner with leading international schools, admissions counsellors, and education agents worldwide, serving as the expert authority on UK medical school admissions. Our team provides strategic consultation and training to counsellors and agents, ensuring they can offer their students the most current and effective guidance for securing placements at top tier UK medical, dental, and veterinary schools.
             </p>
           </motion.div>
 

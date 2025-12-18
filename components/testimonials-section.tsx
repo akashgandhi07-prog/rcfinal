@@ -10,11 +10,11 @@ const testimonials = [
     attribution: "Parent of Medical Student, Oxford",
   },
   {
-    quote: "Discreet, precise, and highly effective. They managed the entire strategy from Year 11 to Offer Day with remarkable attention to detail. What impressed us most was their ability to navigate the complexities of international applications while maintaining absolute confidentiality. The results speak for themselves—multiple offers from top-tier institutions.",
+    quote: "Discreet, precise, and highly effective. They managed the entire strategy from Year 11 to Offer Day with remarkable attention to detail. What impressed us most was their ability to navigate the complexities of international applications while maintaining absolute confidentiality. The results speak for themselves: multiple offers from top tier institutions.",
     attribution: "Private Family Office, Dubai",
   },
   {
-    quote: "Only Regent's offered actual surgeons. The interview prep gave her the confidence of a doctor. Working with practicing clinicians who understand both the academic requirements and the real-world demands of medical practice was invaluable. Her interview performance was transformed, and she secured her first-choice placement.",
+    quote: "Only Regent's offered actual surgeons. The interview prep gave her the confidence of a doctor. Working with practising clinicians who understand both the academic requirements and the real world demands of medical practice was invaluable. Her interview performance was transformed, and she secured her first choice placement.",
     attribution: "Parent of Dental Student, KCL",
   },
   {
@@ -58,7 +58,7 @@ export function TestimonialsSection() {
             >
               <div className="text-[#D4AF37] font-serif text-7xl leading-none mb-6">&ldquo;</div>
               <p className="text-slate-300 text-base md:text-lg leading-relaxed mb-6 italic font-light">{testimonial.quote}</p>
-              <p className="text-slate-500 text-sm font-light">— {testimonial.attribution}</p>
+              <p className="text-slate-500 text-sm font-light">{testimonial.attribution}</p>
             </motion.div>
           ))}
         </div>

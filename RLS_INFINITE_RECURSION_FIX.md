@@ -166,3 +166,4 @@ To prevent this issue in the future:
 - `supabase/fix-rls-complete.sql` - Complete RLS fix (updated)
 - `supabase/security-hardening.sql` - Security hardening (updated)
 
+

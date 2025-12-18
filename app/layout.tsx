@@ -51,7 +51,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${playfair.variable} ${inter.variable} overflow-x-hidden`}>
-      <body className={`font-sans antialiased overflow-x-hidden`}>
+      <body className={`font-sans antialiased overflow-x-hidden`} suppressHydrationWarning>
         {/* Skip to main content link for accessibility */}
         <a
           href="#main-content"

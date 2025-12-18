@@ -11,19 +11,20 @@ import { PortfolioBuilder } from "@/components/portal/portfolio-builder"
 import { UCATTracker } from "@/components/dashboard/views/ucat-tracker"
 import { StrategyKanban } from "@/components/dashboard/views/strategy-kanban"
 import { InterviewPrep } from "@/components/portal/interview-prep"
+import { MessagesView } from "@/components/dashboard/views/messages-view"
+import { ResourceLibraryView } from "@/components/dashboard/views/resource-library-view"
 import { AdminView } from "@/components/portal/admin-view"
 import { SettingsView } from "@/components/portal/settings-view"
 import { supabase } from "@/lib/supabase/client"
-import { getCurrentUser, updateUser, isFeatureEnabled, getLinkedStudents } from "@/lib/supabase/queries"
+import { getCurrentUser, updateUser, getLinkedStudents, getLinkedStudentsForMentor, clearUserCache } from "@/lib/supabase/queries"
 import type { ApprovalStatus, User } from "@/lib/supabase/types"
-import { FeatureName } from "@/lib/supabase/types"
-import { logLogout } from "@/lib/utils/activity-logger"
+// Activity logging removed
+import { logger } from "@/lib/utils/logger"
 import type { OnboardingData } from "@/components/onboarding/onboarding-wizard"
 import { ParentStudentSelector } from "@/components/portal/parent-student-selector"
-import { getLinkedStudentsForMentor } from "@/lib/supabase/queries"
 
 export type ViewMode = "student" | "parent" | "mentor"
-export type ActiveView = "dashboard" | "profile" | "portfolio" | "ucat" | "strategy" | "interview" | "settings" | "admin"
+export type ActiveView = "dashboard" | "profile" | "portfolio" | "ucat" | "strategy" | "interview" | "messages" | "resources" | "settings" | "admin"
 
 export default function PortalPage() {
   const router = useRouter()
@@ -42,42 +43,49 @@ export default function PortalPage() {
   }, [])
 
   useEffect(() => {
-    if (user) {
-      // Check if user is admin
-      setIsAdmin(user.role === "admin")
-      // Primary admin with full access
-      setIsSuperAdmin(user.email === "akashgandhi07@gmail.com")
-      if (user.role === "admin" && activeView !== "admin") {
+    if (!user) return
+
+    // Set admin flags
+    setIsAdmin(user.role === "admin")
+    setIsSuperAdmin(user.email === "akashgandhi07@gmail.com")
+    
+    // Set view mode based on role
+    if (user.role === "admin") {
+      // Admins can view as admin, but default viewMode for display purposes
+      setViewMode("student") // This is just for display - admins have full access
+      setSelectedStudent(user) // Admins view their own data by default
+      // Redirect admin to admin view
+      if (activeView !== "admin") {
         setActiveView("admin")
       }
-
-      // If user is a parent, set viewMode to parent and load linked students
-      if (user.role === "parent") {
-        setViewMode("parent")
-        loadLinkedStudents()
-      } else if (user.role === "mentor") {
-        setViewMode("mentor")
-        loadLinkedStudentsForMentor()
-      } else {
-        setViewMode("student")
-        setSelectedStudent(user) // Students view their own data
-      }
-
-      // Check if UCAT should be shown based on target_course
-      const targetUser = selectedStudent || user
-      if (targetUser?.target_course === "veterinary") {
-        setShowUCAT(false)
-        // If currently viewing UCAT and it should be hidden, redirect to dashboard
-        if (activeView === "ucat") {
-          setActiveView("dashboard")
-        }
-      } else {
-        setShowUCAT(true)
-      }
-
-      // Check feature toggles
-      checkFeatureToggles()
+    } else if (user.role === "parent") {
+      setViewMode("parent")
+      loadLinkedStudents()
+    } else if (user.role === "mentor") {
+      setViewMode("mentor")
+      loadLinkedStudentsForMentor()
+    } else {
+      setViewMode("student")
+      setSelectedStudent(user) // Students view their own data
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+
+    // Check if UCAT should be shown based on target_course
+    const targetUser = selectedStudent || user
+    if (targetUser?.target_course === "veterinary") {
+      setShowUCAT(false)
+      // If currently viewing UCAT and it should be hidden, redirect to dashboard
+      if (activeView === "ucat") {
+        setActiveView("dashboard")
+      }
+    } else {
+      setShowUCAT(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedStudent, activeView])
 
   const loadLinkedStudents = async () => {
@@ -89,7 +97,7 @@ export default function PortalPage() {
         setSelectedStudent(students[0]) // Auto-select first student
       }
     } catch (error) {
-      console.error("Error loading linked students:", error)
+      logger.error("Error loading linked students", error, { userId: user.id })
     }
   }
 
@@ -102,7 +110,7 @@ export default function PortalPage() {
         setSelectedStudent(students[0]) // Auto-select first student
       }
     } catch (error) {
-      console.error("Error loading linked students for mentor:", error)
+      logger.error("Error loading linked students for mentor", error, { userId: user.id })
     }
   }
 
@@ -120,31 +128,35 @@ export default function PortalPage() {
         return
       }
 
-      // Single user fetch with 3s guard
-      const userFetch = getCurrentUser()
-      const timeout = new Promise<User | null>((resolve) =>
-        setTimeout(() => resolve(null), 3000)
-      )
-      const currentUser = await Promise.race([userFetch, timeout])
+      // Get user with cache (faster)
+      const currentUser = await getCurrentUser()
 
       if (!currentUser) {
-        // If we cannot load profile quickly, fall back to login
-        await supabase.auth.signOut()
         setIsAuthenticated(false)
         setUser(null)
         setIsLoading(false)
         return
       }
 
-      // Auto-elevate primary admin (akashgandhi07@gmail.com)
-      if (currentUser.email === "akashgandhi07@gmail.com" && currentUser.role !== "admin") {
+      // Check for admin access grant from login screen
+      const adminAccessGranted = typeof window !== "undefined" && sessionStorage.getItem("admin_access_granted") === "true"
+      const adminAccessTime = typeof window !== "undefined" ? sessionStorage.getItem("admin_access_timestamp") : null
+      const isRecentGrant = adminAccessTime && (Date.now() - parseInt(adminAccessTime)) < 3600000 // 1 hour
+
+      // Auto-elevate primary admin or if admin access was granted
+      if ((currentUser.email === "akashgandhi07@gmail.com" || (adminAccessGranted && isRecentGrant)) && currentUser.role !== "admin") {
         const updated = await updateUser(currentUser.id, {
           role: "admin",
           approval_status: "approved",
           onboarding_status: "complete",
         })
         if (updated) {
+          clearUserCache() // Clear cache after update
           setUser(updated)
+          if (adminAccessGranted) {
+            sessionStorage.removeItem("admin_access_granted")
+            sessionStorage.removeItem("admin_access_timestamp")
+          }
         }
       }
 
@@ -162,7 +174,7 @@ export default function PortalPage() {
       setIsAuthenticated(true)
       setUser(currentUser)
     } catch (error) {
-      console.error("Auth check error:", error)
+      logger.error("Auth check error", error)
       setIsAuthenticated(false)
       setUser(null)
     } finally {
@@ -170,14 +182,7 @@ export default function PortalPage() {
     }
   }
 
-  const checkFeatureToggles = async () => {
-    if (!user) return
-
-    const ucatEnabled = await isFeatureEnabled(user.id, FeatureName.UCAT_TRACKER)
-    if (!ucatEnabled) {
-      setShowUCAT(false)
-    }
-  }
+  // Feature toggles removed - all features enabled by default
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
     if (!user) return
@@ -240,19 +245,19 @@ export default function PortalPage() {
 
   const handleLogout = async () => {
     try {
-      // Log logout before signing out
-      if (user?.email) {
-        await logLogout(user.email)
-      }
       
+      clearUserCache()
       await supabase.auth.signOut()
       setIsAuthenticated(false)
       setUser(null)
       router.push("/portal")
       router.refresh()
     } catch (error) {
-      console.error("Error logging out:", error)
-      alert("Failed to logout. Please try again.")
+      logger.error("Error logging out", error)
+      // Still sign out even if logging fails
+      clearUserCache()
+      setIsAuthenticated(false)
+      setUser(null)
     }
   }
 
@@ -260,13 +265,13 @@ export default function PortalPage() {
     if (!user) return
     
     try {
-      await updateUser(user.id, { onboarding_status: "pending" })
-      const updatedUser = await getCurrentUser()
-      if (updatedUser) {
-        setUser(updatedUser)
+      const updated = await updateUser(user.id, { onboarding_status: "pending" })
+      if (updated) {
+        clearUserCache()
+        setUser(updated)
       }
     } catch (error) {
-      console.error("Error resetting onboarding:", error)
+      logger.error("Error resetting onboarding", error, { userId: user.id })
     }
   }
 
@@ -350,8 +355,8 @@ export default function PortalPage() {
 
   // Filter out UCAT from sidebar if not applicable
   const availableViews: ActiveView[] = showUCAT
-    ? ["dashboard", "profile", "portfolio", "ucat", "strategy", "interview", "settings"]
-    : ["dashboard", "profile", "portfolio", "strategy", "interview", "settings"]
+    ? ["dashboard", "profile", "portfolio", "ucat", "strategy", "interview", "messages", "settings"]
+    : ["dashboard", "profile", "portfolio", "strategy", "interview", "messages", "settings"]
 
   if (isAdmin) {
     availableViews.push("admin")
@@ -393,21 +398,28 @@ export default function PortalPage() {
           studentId={displayUser?.id}
         />
       )}
-      {activeView === "profile" && <ProfileView viewMode={viewMode} userData={displayUser} />}
+      {activeView === "profile" && <ProfileView viewMode={viewMode === "mentor" ? "mentor" : viewMode} userData={displayUser} />}
       {activeView === "portfolio" && (
         <PortfolioBuilder 
-          viewMode={viewMode} 
+          viewMode={isAdmin ? "student" : viewMode} 
           studentId={displayUser?.id}
         />
       )}
       {activeView === "ucat" && showUCAT && (
         <UCATTracker 
           viewMode={viewMode} 
-          studentId={displayUser?.id}
+          studentId={displayUser?.id || undefined}
         />
       )}
       {activeView === "strategy" && <StrategyKanban viewMode={viewMode} userData={displayUser} />}
       {activeView === "interview" && <InterviewPrep viewMode={viewMode} />}
+      {activeView === "messages" && <MessagesView viewMode={viewMode} studentId={displayUser?.id} />}
+      {activeView === "resources" && (
+        <ResourceLibraryView 
+          viewMode={viewMode} 
+          studentId={displayUser?.id}
+        />
+      )}
       {activeView === "admin" && isAdmin && <AdminView onImpersonate={handleImpersonate} />}
       {activeView === "settings" && (
         <SettingsView 

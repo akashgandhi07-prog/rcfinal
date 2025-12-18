@@ -22,14 +22,11 @@ CREATE TABLE IF NOT EXISTS public.activity_log (
 ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can view activity logs
+-- NOTE: This policy should use is_admin() function to avoid RLS recursion
+-- See fix-rls-infinite-recursion.sql for the proper implementation
 CREATE POLICY "Admins can view activity logs"
   ON public.activity_log FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id::text = auth.uid()::text AND role = 'admin'
-    )
-  );
+  USING (public.is_admin());
 
 -- Allow all authenticated users to insert their own activity logs
 CREATE POLICY "Users can log their own activities"
@@ -45,6 +42,8 @@ CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON public.activity_log(cr
 CREATE INDEX IF NOT EXISTS idx_activity_log_user_created ON public.activity_log(user_id, created_at DESC);
 
 -- Function to log activity (can be called from client)
+-- NOTE: This version uses auth.users to avoid RLS recursion issues
+-- If you need to update this function, use fix-log-activity-rpc.sql
 CREATE OR REPLACE FUNCTION log_activity(
   p_action_type TEXT,
   p_resource_type TEXT,
@@ -55,19 +54,29 @@ CREATE OR REPLACE FUNCTION log_activity(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_user_id UUID;
   v_user_email TEXT;
   v_log_id UUID;
 BEGIN
-  -- Get current user
+  -- Get current user from auth (doesn't trigger RLS)
   v_user_id := auth.uid();
   
-  -- Get user email
+  -- Get user email from auth.users metadata (doesn't trigger RLS on public.users)
+  -- This avoids the infinite recursion issue
   SELECT email INTO v_user_email
-  FROM public.users
-  WHERE id::text = v_user_id::text;
+  FROM auth.users
+  WHERE id = v_user_id;
+  
+  -- If email not found in auth.users, try to get from public.users as fallback
+  IF v_user_email IS NULL THEN
+    SELECT email INTO v_user_email
+    FROM public.users
+    WHERE id = v_user_id
+    LIMIT 1;
+  END IF;
   
   -- Insert activity log
   INSERT INTO public.activity_log (
@@ -90,6 +99,10 @@ BEGIN
   RETURNING id INTO v_log_id;
   
   RETURN v_log_id;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Silently fail - logging should never break the app
+    RETURN NULL;
 END;
 $$;
 

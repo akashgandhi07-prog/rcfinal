@@ -1,8 +1,8 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react"
 import { supabase } from "@/lib/supabase/client"
-import { getCurrentUser } from "@/lib/supabase/queries"
+import { getCurrentUser, clearUserCache } from "@/lib/supabase/queries"
 import type { User } from "@/lib/supabase/types"
 import { logger } from "@/lib/utils/logger"
 
@@ -19,16 +19,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const refreshInProgress = useRef(false)
 
-  const refreshUser = async () => {
+  const refreshUser = async (forceRefresh = false) => {
+    // Prevent concurrent refreshes
+    if (refreshInProgress.current && !forceRefresh) {
+      return
+    }
+
+    refreshInProgress.current = true
     try {
-      const currentUser = await getCurrentUser()
+      const currentUser = await getCurrentUser(forceRefresh)
       setUser(currentUser)
       setIsAuthenticated(!!currentUser)
     } catch (error) {
       logger.error("Error refreshing user", error)
       setUser(null)
       setIsAuthenticated(false)
+    } finally {
+      refreshInProgress.current = false
     }
   }
 
@@ -60,12 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           if (mounted) {
             setIsAuthenticated(false)
+            setUser(null)
           }
         }
       } catch (error) {
         logger.error("Error checking auth", error)
         if (mounted) {
           setIsAuthenticated(false)
+          setUser(null)
         }
       } finally {
         if (mounted) {
@@ -82,8 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (mounted) {
         if (session) {
-          await refreshUser()
+          // Clear cache on auth state change to force refresh
+          clearUserCache()
+          await refreshUser(true)
         } else {
+          clearUserCache()
           setUser(null)
           setIsAuthenticated(false)
         }
@@ -110,6 +124,7 @@ export function useAuth() {
   }
   return context
 }
+
 
 
 

@@ -14,6 +14,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getCurrentUser, getUCATMocks, createUCATMock, updateUCATMock, deleteUCATMock } from "@/lib/supabase/queries"
 import type { UCATMock as DBUCATMock } from "@/lib/supabase/types"
+import { logger } from "@/lib/utils/logger"
 
 interface UCATMock {
   id: string
@@ -41,20 +42,35 @@ interface UCATTrackerProps {
   studentId?: string
 }
 
-export function UCATTracker({ viewMode }: UCATTrackerProps) {
+export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [mocks, setMocks] = useState<UCATMock[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    let mounted = true
+    
     const loadUser = async () => {
-      const user = await getCurrentUser()
-      if (user) {
-        setCurrentUserId(user.id)
+      try {
+        const user = await getCurrentUser()
+        if (mounted && user) {
+          setCurrentUserId(user.id)
+        }
+      } catch (error) {
+        if (mounted) {
+          logger.error("Error loading current user in UCAT tracker", error)
+        }
       }
     }
     loadUser()
+    
+    return () => {
+      mounted = false
+    }
   }, [])
+
+  // Use studentId prop if provided, otherwise use currentUserId
+  const displayStudentId = studentId || currentUserId
 
   // Helper function to convert DB format to component format
   const dbMockToComponent = (dbMock: DBUCATMock): UCATMock => ({
@@ -82,26 +98,36 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
 
   // Load mocks from Supabase
   useEffect(() => {
+    let mounted = true
+    
     const loadMocks = async () => {
-      if (!currentUserId) {
-        setIsLoading(false)
+      if (!displayStudentId) {
+        if (mounted) setIsLoading(false)
         return
       }
       
-      setIsLoading(true)
+      if (mounted) setIsLoading(true)
       try {
-        const dbMocks = await getUCATMocks(currentUserId)
+        const dbMocks = await getUCATMocks(displayStudentId)
+        if (!mounted) return
+        
         const componentMocks = dbMocks.map(dbMockToComponent)
         setMocks(componentMocks)
       } catch (error) {
-        console.error("Error loading UCAT mocks:", error)
+        if (mounted) {
+          logger.error("Error loading UCAT mocks", error, { studentId: displayStudentId })
+        }
       } finally {
-        setIsLoading(false)
+        if (mounted) setIsLoading(false)
       }
     }
     
     loadMocks()
-  }, [currentUserId])
+    
+    return () => {
+      mounted = false
+    }
+  }, [displayStudentId])
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -201,7 +227,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!currentUserId) return
+    if (!displayStudentId) return
     
     if (!isScoreValid(formData.vr) || !isScoreValid(formData.dm) || !isScoreValid(formData.qr)) {
       window.alert("Each subtest score (VR, DM, QR) must be between 300 and 900.")
@@ -233,7 +259,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
     // Save to Supabase
     try {
       const dbMock = componentMockToDB(newMock)
-      const savedMock = await createUCATMock(currentUserId, dbMock)
+      const savedMock = await createUCATMock(displayStudentId, dbMock)
       if (savedMock) {
         // Update with real ID from database
         setMocks(prev => prev.map(m => m.id === newMock.id ? dbMockToComponent(savedMock) : m))
@@ -388,7 +414,7 @@ export function UCATTracker({ viewMode }: UCATTrackerProps) {
   }
 
   const handleClearAllFinal = async () => {
-    if (!currentUserId) return
+    if (!displayStudentId) return
     
     // Delete all mocks from Supabase
     const deletePromises = mocks.map(mock => deleteUCATMock(mock.id))

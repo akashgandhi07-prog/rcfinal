@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
 interface SettingsViewProps {
-  viewMode: "student" | "parent"
+  viewMode: "student" | "parent" | "mentor"
   onResetOnboarding?: () => void
   onLogout: () => void
 }

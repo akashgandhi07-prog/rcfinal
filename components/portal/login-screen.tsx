@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { UserRole } from "@/lib/supabase/types"
 import { Eye, EyeOff, X } from "lucide-react"
 import { validatePasswordStrength } from "@/lib/utils/validation"
-import { logLogin, logLoginAttempt, logActivity } from "@/lib/utils/activity-logger"
+// Activity logging removed
+import { logger } from "@/lib/utils/logger"
 
 interface LoginScreenProps {
   onLogin?: () => void
@@ -47,6 +48,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("")
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false)
+  
+  // Admin login state
+  const [showAdminDialog, setShowAdminDialog] = useState(false)
+  const [adminPassword, setAdminPassword] = useState("")
+  const [adminError, setAdminError] = useState<string | null>(null)
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
 
   const generateCaptcha = () => {
     const a = Math.floor(Math.random() * 5) + 3
@@ -77,9 +84,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       })
 
       if (authError) {
-        // Log failed login attempt
-        await logLoginAttempt(normalizedEmail, false)
-        
         // Don't expose detailed error messages that could help attackers
         if (authError.message.includes("Invalid login credentials") || authError.message.includes("Email not confirmed")) {
           setError("Invalid email or password. Please check your credentials and try again.")
@@ -92,12 +96,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       }
 
       if (data.user) {
-        // Create user record in database if doesn't exist
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", data.user.id)
-          .single()
+        // Fetch user data in parallel with session check for better performance
+        const [userDataResult] = await Promise.all([
+          supabase.from("users").select("*").eq("id", data.user.id).single(),
+          // Small delay to ensure session is established
+          new Promise(resolve => setTimeout(resolve, 50))
+        ])
+        
+        const { data: userData, error: userError } = userDataResult
 
         if (userError && userError.code === "PGRST116") {
           // User doesn't exist, create them
@@ -109,6 +115,37 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             approval_status: "pending",
           })
         } else if (userData) {
+          // Check if admin access was granted via password
+          const adminAccessGranted = sessionStorage.getItem("admin_access_granted") === "true"
+          const adminAccessTime = sessionStorage.getItem("admin_access_timestamp")
+          const isRecentGrant = adminAccessTime && (Date.now() - parseInt(adminAccessTime)) < 3600000 // 1 hour
+
+          // Auto-elevate to admin if admin password was entered and it's recent
+          if (adminAccessGranted && isRecentGrant && userData.role !== "admin") {
+            await supabase.from("users").update({
+              role: "admin",
+              approval_status: "approved",
+              onboarding_status: "complete",
+            }).eq("id", userData.id)
+            
+            // Clear the grant flag
+            sessionStorage.removeItem("admin_access_granted")
+            sessionStorage.removeItem("admin_access_timestamp")
+            
+            // Reload user data
+            const { data: updatedUser } = await supabase
+              .from("users")
+              .select("*")
+              .eq("id", data.user.id)
+              .single()
+            
+            if (updatedUser) {
+              userData.role = "admin"
+              userData.approval_status = "approved"
+              userData.onboarding_status = "complete"
+            }
+          }
+
           // Check if user is approved (admins are always approved)
           const isAdmin = userData.role === "admin"
           const isApproved = userData.approval_status === "approved" || isAdmin
@@ -121,12 +158,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           }
         }
 
-        // Small delay to ensure session is established
-        await new Promise(resolve => setTimeout(resolve, 100))
-
-        // Log successful login (both activity log and login attempts)
-        await logLogin(normalizedEmail)
-        await logLoginAttempt(normalizedEmail, true)
+        // Activity logging removed
 
         if (onLogin) {
           onLogin()
@@ -136,7 +168,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       }
     } catch (err) {
       setError("An error occurred during login")
-      console.error("Login error:", err)
+      // Error already logged by activity logger
     } finally {
       setIsLoading(false)
     }
@@ -179,7 +211,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       setForgotPasswordSuccess(true)
       setForgotPasswordEmail("")
     } catch (err) {
-      console.error("Password reset error:", err)
+      logger.error("Password reset error", err)
       setError("An error occurred. Please try again.")
     } finally {
       setForgotPasswordLoading(false)
@@ -263,11 +295,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         )
 
         if (insertError) {
-          // Log full error details
-          // Log error details server-side only (not exposed to user)
-          console.error("Error creating user profile for signup:", {
+          logger.error("Error creating user profile for signup", insertError, {
             code: insertError.code,
-            message: insertError.message,
             // Don't log sensitive details
           })
           
@@ -277,19 +306,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           )
           return
         }
-
-        // Success - profile created
-        console.log("User profile created successfully:", insertData)
         
-        // Log account creation
-        await logActivity('create', 'user', {
-          resourceId: data.user.id,
-          description: `New account created: ${normalizedEmail} (${signupRole})`,
-          metadata: {
-            role: signupRole,
-            email: normalizedEmail,
-          },
-        })
+        // Activity logging removed
       }
 
       setSuccessMessage(
@@ -301,9 +319,53 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       setCaptchaAnswer("")
       setPasswordStrength(null)
     } catch (err) {
-      console.error("Signup error:", err)
+      logger.error("Signup error", err)
       setError("An error occurred during signup. Please try again.")
     } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleAdminLogin = async () => {
+    if (adminPassword !== "Junojuno") {
+      setAdminError("Incorrect admin password. Please try again.")
+      return
+    }
+
+    setAdminError(null)
+    setIsLoading(true)
+
+    try {
+      // Check if admin accounts exist
+      const { data: adminUsers, error: adminCheckError } = await supabase
+        .from("users")
+        .select("id, email, full_name")
+        .eq("role", "admin")
+        .order("created_at", { ascending: false })
+        .limit(5)
+
+      if (adminCheckError) {
+        logger.error("Error checking admin users", adminCheckError)
+      }
+
+      // Store admin access grant in sessionStorage (expires when tab closes)
+      sessionStorage.setItem("admin_access_granted", "true")
+      sessionStorage.setItem("admin_access_timestamp", Date.now().toString())
+
+      // Show success message and close dialog
+      setShowAdminDialog(false)
+      setIsLoading(false)
+      
+      // Show helpful message about admin accounts
+      if (adminUsers && adminUsers.length > 0) {
+        const adminEmails = adminUsers.map(u => u.email).join(", ")
+        setSuccessMessage(`Admin access granted! Log in with any admin account (e.g., ${adminEmails.split(",")[0]}) to access admin features.`)
+      } else {
+        setSuccessMessage("Admin access granted! However, no admin accounts found. Please create one in the database or contact support.")
+      }
+    } catch (err) {
+      logger.error("Admin login error", err)
+      setAdminError("Failed to grant admin access. Please try again.")
       setIsLoading(false)
     }
   }
@@ -326,7 +388,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       const { data: authData, error: authError } = await supabase.auth.signInAnonymously()
       
       if (authError) {
-        console.error("Anonymous auth error:", authError)
+        logger.error("Anonymous auth error", authError)
         // Fallback: create demo user with email/password
         const demoEmail = `demo-${Date.now()}@regents.com`
         const demoPassword = "demo123456"
@@ -367,7 +429,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         router.push("/portal")
       }
     } catch (err) {
-      console.error("Bypass error:", err)
+      logger.error("Bypass error", err)
       // Fail gracefully and surface an error instead of silently redirecting
       setError("Failed to access demo. Please try again.")
     } finally {
@@ -502,15 +564,30 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 >
                   {isLoading ? "Signing in..." : "Secure Login"}
                 </Button>
-                <Button
-                  type="button"
-                  onClick={handleBypass}
-                  variant="outline"
-                  className="w-full border-slate-600/50 text-slate-200 hover:bg-white/10 hover:border-slate-500 rounded-lg h-12 sm:h-14 font-light text-base min-h-[44px] touch-manipulation"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Loading..." : "Continue as Demo User"}
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    onClick={handleBypass}
+                    variant="outline"
+                    className="border-slate-600/50 text-slate-200 hover:bg-white/10 hover:border-slate-500 rounded-lg h-11 sm:h-12 font-light text-sm min-h-[44px] touch-manipulation"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Demo User"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminDialog(true)
+                      setAdminPassword("")
+                      setAdminError(null)
+                    }}
+                    variant="outline"
+                    className="border-purple-600/50 text-purple-200 hover:bg-purple-950/30 hover:border-purple-500 rounded-lg h-11 sm:h-12 font-light text-sm min-h-[44px] touch-manipulation"
+                    disabled={isLoading}
+                  >
+                    ADMIN
+                  </Button>
+                </div>
               </div>
             </form>
           ) : (
@@ -770,6 +847,87 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               disabled={isLoading}
             >
               {isLoading ? "Accessing..." : "Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Login Dialog */}
+      <Dialog open={showAdminDialog} onOpenChange={setShowAdminDialog}>
+        <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white max-w-[calc(100vw-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-purple-300 font-light text-lg sm:text-xl">
+              Admin Portal Access
+            </DialogTitle>
+            <DialogDescription className="text-slate-300 font-light text-sm">
+              Enter the admin password to access administrative functions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {adminError && (
+              <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
+                <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{adminError}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="admin-password" className="text-slate-200 font-light text-xs sm:text-sm">
+                Admin Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="admin-password"
+                  type={showAdminPassword ? "text" : "password"}
+                  autoComplete="off"
+                  value={adminPassword}
+                  onChange={(e) => {
+                    setAdminPassword(e.target.value)
+                    setAdminError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAdminLogin()
+                    }
+                  }}
+                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  placeholder="Enter admin password"
+                  autoFocus
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
+                  aria-label={showAdminPassword ? "Hide password" : "Show password"}
+                >
+                  {showAdminPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 font-light">
+              After entering the correct password, log in with any account. Your account will be automatically elevated to admin status for this session.
+            </p>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowAdminDialog(false)
+                setAdminPassword("")
+                setAdminError(null)
+              }}
+              className="border-slate-600/50 text-slate-200 hover:bg-white/10 w-full sm:w-auto min-h-[44px] touch-manipulation"
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAdminLogin}
+              className="bg-purple-600 text-white hover:bg-purple-700 font-medium w-full sm:w-auto min-h-[44px] touch-manipulation"
+              disabled={isLoading || !adminPassword}
+            >
+              {isLoading ? "Accessing..." : "Access Admin Portal"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,3 +1,7 @@
+"use client"
+
+import { PartnerWithUsForm } from "@/components/partner-with-us-form"
+
 export function Footer() {
   return (
     <footer id="contact" className="border-t border-white/20 bg-slate-950 py-16 overflow-x-hidden">
@@ -28,6 +32,13 @@ export function Footer() {
 
           {/* Links */}
           <div className="flex flex-col md:flex-row gap-4 md:justify-end items-center text-xs font-light">
+            <PartnerWithUsForm
+              trigger={
+                <button className="text-slate-500 hover:text-amber-400 transition-colors">
+                  Partner With Us
+                </button>
+              }
+            />
             <button className="text-slate-500 hover:text-amber-400 transition-colors">Privacy</button>
             <button className="text-slate-500 hover:text-amber-400 transition-colors">Terms of Engagement</button>
           </div>

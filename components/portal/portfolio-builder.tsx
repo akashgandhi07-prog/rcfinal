@@ -14,11 +14,10 @@ import { MentorComments } from "./mentor-comments"
 import { getCurrentUser, getPortfolioActivities, createPortfolioActivity, updatePortfolioActivity, deletePortfolioActivity } from "@/lib/supabase/queries"
 import type { User } from "@/lib/supabase/types"
 import type { PortfolioActivity as DBPortfolioActivity } from "@/lib/supabase/types"
-import { useUndoRedo } from "@/lib/hooks/use-undo-redo"
-import { useAutoSave } from "@/lib/hooks/use-auto-save"
-import { SaveStatusIndicator } from "@/components/ui/save-status"
-import { UndoRedoButtons } from "@/components/ui/undo-redo-buttons"
+// Auto-save and undo/redo removed - using manual save
 import { exportToCSV, exportToJSON } from "@/lib/utils/export"
+import { logger } from "@/lib/utils/logger"
+import { showNotification } from "@/components/ui/notification"
 import { Download } from "lucide-react"
 
 interface Activity {
@@ -70,13 +69,15 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
   })
 
   useEffect(() => {
-    const loadUser = async () => {
-      const user = await getCurrentUser()
-      if (user) {
+    let mounted = true
+    getCurrentUser().then(user => {
+      if (mounted && user) {
         setCurrentUserId(user.id)
       }
-    }
-    loadUser()
+    }).catch(error => {
+      logger.error("Error loading current user in portfolio", error)
+    })
+    return () => { mounted = false }
   }, [])
 
   const displayStudentId = studentId || currentUserId
@@ -88,6 +89,35 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
     extracurricular: [],
   })
   const [isLoading, setIsLoading] = useState(true)
+
+  // Manual save function
+  const [isSaving, setIsSaving] = useState(false)
+  
+  const handleSave = async () => {
+    if (!displayStudentId || !canEdit) return
+    
+    setIsSaving(true)
+    try {
+      // Save all activities to database
+      for (const [category, categoryActivities] of Object.entries(activities)) {
+        for (const activity of categoryActivities) {
+          const dbActivity = componentActivityToDB(activity, category)
+          // Check if activity exists (has numeric ID from DB)
+          if (activity.id && !isNaN(Number(activity.id))) {
+            await updatePortfolioActivity(activity.id, dbActivity)
+          } else {
+            await createPortfolioActivity(displayStudentId, dbActivity)
+          }
+        }
+      }
+      showNotification("Portfolio saved successfully", "success")
+    } catch (error) {
+      logger.error("Error saving portfolio", error, { studentId: displayStudentId })
+      showNotification("Failed to save portfolio", "error")
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   // Helper function to convert DB format to component format
   const dbActivityToComponent = (dbActivity: DBPortfolioActivity): Activity => ({
@@ -113,16 +143,20 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
 
   // Load activities from Supabase
   useEffect(() => {
+    let mounted = true
+    
     const loadActivities = async () => {
       const targetStudentId = studentId || currentUserId
       if (!targetStudentId) {
-        setIsLoading(false)
+        if (mounted) setIsLoading(false)
         return
       }
       
-      setIsLoading(true)
+      if (mounted) setIsLoading(true)
       try {
         const dbActivities = await getPortfolioActivities(targetStudentId)
+        if (!mounted) return
+        
         const groupedActivities: Record<string, Activity[]> = {
           work: [],
           volunteering: [],
@@ -130,21 +164,35 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
           extracurricular: [],
         }
         
-        dbActivities.forEach(dbActivity => {
-          const componentActivity = dbActivityToComponent(dbActivity)
-          groupedActivities[dbActivity.category].push(componentActivity)
-        })
+        if (dbActivities && Array.isArray(dbActivities)) {
+          dbActivities.forEach(dbActivity => {
+            if (dbActivity && dbActivity.category) {
+              const componentActivity = dbActivityToComponent(dbActivity)
+              if (groupedActivities[dbActivity.category]) {
+                groupedActivities[dbActivity.category].push(componentActivity)
+              }
+            }
+          })
+        }
         
-        setActivities(groupedActivities)
-        setActivitiesState(groupedActivities)
+        if (mounted) {
+          setActivities(groupedActivities)
+        }
       } catch (error) {
-        console.error("Error loading portfolio activities:", error)
+        if (mounted) {
+          logger.error("Error loading portfolio activities", error, { studentId: targetStudentId })
+          showNotification("Failed to load portfolio activities", "error")
+        }
       } finally {
-        setIsLoading(false)
+        if (mounted) setIsLoading(false)
       }
     }
     
     loadActivities()
+    
+    return () => {
+      mounted = false
+    }
   }, [studentId, currentUserId])
 
   const [todos, setTodos] = useState<Record<string, { id: string; text: string; done: boolean }[]>>({
@@ -209,23 +257,7 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
     })
   }
 
-  // Keyboard shortcuts for undo/redo
-  useEffect(() => {
-    if (!canEdit) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        if (canUndo) undo()
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault()
-        if (canRedo) redo()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [canEdit, canUndo, canRedo, undo, redo])
+  // Keyboard shortcuts removed - undo/redo functionality removed
 
   if (isLoading) {
     return (
@@ -244,15 +276,13 @@ export function PortfolioBuilder({ viewMode, studentId }: PortfolioBuilderProps)
           <h2 className="text-2xl font-serif text-slate-900 mb-1 font-light">Supracurricular Portfolio</h2>
           <p className="text-sm text-slate-700 font-light">Document your experiences and reflections</p>
           {canEdit && (
-            <div className="flex items-center gap-3 mt-2">
-              <SaveStatusIndicator status={saveStatus} lastSaved={lastSaved} />
-              <UndoRedoButtons 
-                onUndo={undo} 
-                onRedo={redo} 
-                canUndo={canUndo} 
-                canRedo={canRedo} 
-              />
-            </div>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="mt-2 bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg"
+            >
+              {isSaving ? "Saving..." : "Save Portfolio"}
+            </Button>
           )}
         </div>
 

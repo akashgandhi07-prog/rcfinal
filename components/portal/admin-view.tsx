@@ -16,7 +16,12 @@ import { supabase } from "@/lib/supabase/client"
 import type { ApprovalStatus, User, UserRole, TargetCourse, OnboardingStatus, FeeStatus } from "@/lib/supabase/types"
 import { showNotification } from "@/components/ui/notification"
 import { ActivityLogViewer } from "@/components/portal/activity-log-viewer"
-import { logActivity, logUpdate, logCreate, logDelete, logLogin } from "@/lib/utils/activity-logger"
+import { AdminActivityDashboard } from "./admin-activity-dashboard"
+import { AdminEmailSender } from "./admin-email-sender"
+import { AdminChangesView } from "./admin-changes-view"
+import { AdminResourceManager } from "./admin-resource-manager"
+// Activity logging removed
+import { logger } from "@/lib/utils/logger"
 
 interface AdminViewProps {
   onImpersonate: (studentId: string) => void
@@ -43,7 +48,7 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
   const [showMentorLinkDialog, setShowMentorLinkDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [activeTab, setActiveTab] = useState<"users" | "relationships" | "activity-logs">("activity-logs")
+  const [activeTab, setActiveTab] = useState<"users" | "relationships" | "activity-logs" | "activity-dashboard" | "email" | "changes" | "resources">("activity-dashboard")
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null)
   const [confirmMessage, setConfirmMessage] = useState("")
@@ -87,7 +92,7 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
       }
       setRelationships(relationshipsData)
     } catch (error) {
-      console.error("Error loading data:", error)
+      logger.error("Error loading admin data", error)
     } finally {
       setIsLoading(false)
     }
@@ -107,25 +112,13 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
 
     try {
       await createParentStudentLink(selectedParent, selectedStudent.id)
-      
-      // Log the link creation
-      await logActivity('link', 'parent_student_link', {
-        resourceId: selectedStudent.id,
-        description: `Admin linked parent ${selectedParent} to student ${selectedStudent.email}`,
-        metadata: {
-          parent_id: selectedParent,
-          student_id: selectedStudent.id,
-          student_email: selectedStudent.email,
-        },
-      })
-
       await loadData()
       setShowLinkDialog(false)
       setSelectedStudent(null)
       setSelectedParent("")
       showNotification("Parent linked successfully!", "success")
     } catch (error) {
-      console.error("Error linking parent:", error)
+      logger.error("Error linking parent", error, { parentId: selectedParent, studentId: selectedStudent.id })
       showNotification("Failed to link parent. Please try again.", "error")
     }
   }
@@ -137,22 +130,11 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
     setConfirmAction(async () => {
       try {
         await deleteParentStudentLink(parentId, studentId)
-        
-        // Log the unlink
-        await logActivity('unlink', 'parent_student_link', {
-          resourceId: studentId,
-          description: `Admin unlinked parent ${parentId} from student ${studentId}`,
-          metadata: {
-            parent_id: parentId,
-            student_id: studentId,
-          },
-        })
-
         await loadData()
         showNotification("Parent unlinked successfully!", "success")
         setShowConfirmDialog(false)
       } catch (error) {
-        console.error("Error unlinking parent:", error)
+        logger.error("Error unlinking parent", error, { parentId, studentId })
         showNotification("Failed to unlink parent. Please try again.", "error")
         setShowConfirmDialog(false)
       }
@@ -166,25 +148,13 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
 
     try {
       await createMentorStudentLink(selectedMentor, selectedStudent.id)
-      
-      // Log the link creation
-      await logActivity('link', 'mentor_student_link', {
-        resourceId: selectedStudent.id,
-        description: `Admin linked mentor ${selectedMentor} to student ${selectedStudent.email}`,
-        metadata: {
-          mentor_id: selectedMentor,
-          student_id: selectedStudent.id,
-          student_email: selectedStudent.email,
-        },
-      })
-
       await loadData()
       setShowMentorLinkDialog(false)
       setSelectedStudent(null)
       setSelectedMentor("")
       showNotification("Mentor linked successfully!", "success")
     } catch (error) {
-      console.error("Error linking mentor:", error)
+      logger.error("Error linking mentor", error, { mentorId: selectedMentor, studentId: selectedStudent.id })
       showNotification("Failed to link mentor. Please try again.", "error")
     }
   }
@@ -207,16 +177,12 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
       })
 
       await updateUser(editingUser.id, updates)
-      
-      // Log the update
-      await logUpdate('user', editingUser.id, changes, `Admin updated user: ${editingUser.email}. Changed fields: ${Object.keys(changes).join(', ')}`)
-
       await loadData()
       setShowEditDialog(false)
       setEditingUser(null)
       showNotification("User updated successfully!", "success")
     } catch (error) {
-      console.error("Error updating user:", error)
+      logger.error("Error updating user", error, { userId: editingUser.id })
       showNotification("Failed to update user. Please try again.", "error")
     }
   }
@@ -227,20 +193,10 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
     try {
       const user = allUsers.find(u => u.id === userId)
       await updateUser(userId, updates)
-      
-      // Log quick update
-      await logActivity('update', 'user', {
-        resourceId: userId,
-        description: `Admin quick-updated user: ${user?.email || userId}`,
-        metadata: {
-          changes: Object.keys(updates),
-        },
-      })
-
       await loadData()
       showNotification("User updated successfully!", "success")
     } catch (error) {
-      console.error("Error quick-updating user:", error)
+      logger.error("Error quick-updating user", error, { userId })
       showNotification("Failed to update user. Please try again.", "error")
     }
   }
@@ -248,11 +204,11 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
   const [showCreateDemoDialog, setShowCreateDemoDialog] = useState(false)
   const [creatingDemo, setCreatingDemo] = useState(false)
 
-  const parents = allUsers.filter(u => u.role === "parent")
-  const mentors = allUsers.filter(u => u.role === "mentor")
-  const studentsOnly = allUsers.filter(u => u.role === "student")
-  const admins = allUsers.filter(u => u.role === "admin")
-  const pendingApprovals = allUsers.filter((u) => (u.approval_status as ApprovalStatus | undefined) === "pending")
+  const parents = Array.isArray(allUsers) ? allUsers.filter(u => u && u.role === "parent") : []
+  const mentors = Array.isArray(allUsers) ? allUsers.filter(u => u && u.role === "mentor") : []
+  const studentsOnly = Array.isArray(allUsers) ? allUsers.filter(u => u && u.role === "student") : []
+  const admins = Array.isArray(allUsers) ? allUsers.filter(u => u && u.role === "admin") : []
+  const pendingApprovals = Array.isArray(allUsers) ? allUsers.filter((u) => u && (u.approval_status as ApprovalStatus | undefined) === "pending") : []
 
   const handleCreateDemoAccount = async (role: UserRole, email: string, name: string, targetCourse?: TargetCourse | null) => {
     setCreatingDemo(true)
@@ -310,9 +266,6 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
         throw insertError
       }
 
-      // Log demo account creation
-      await logCreate('user', userId, `Admin created demo account: ${email} (${role})`)
-
       showNotification(
         `Demo account profile created: ${email}. Create the auth user manually in Supabase Dashboard or use the SQL script.`,
         "success",
@@ -320,7 +273,7 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
       )
       await loadData()
     } catch (error) {
-      console.error("Error creating demo account:", error)
+      logger.error("Error creating demo account", error, { email, role })
       showNotification(
         `Failed to create demo account: ${error instanceof Error ? error.message : "Unknown error"}. You can create demo accounts using the SQL script.`,
         "error",
@@ -382,23 +335,35 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "users" | "relationships" | "activity-logs")} className="w-full">
-        <TabsList className="bg-slate-100 rounded-lg p-1">
-          <TabsTrigger value="relationships" className="rounded-md">
-            <Network size={16} className="mr-2" />
-            All Relationships
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+        <TabsList className="bg-slate-100 rounded-lg p-1 grid grid-cols-7 gap-1">
+          <TabsTrigger value="activity-dashboard" className="rounded-md text-xs">
+            Activity Dashboard
           </TabsTrigger>
-          <TabsTrigger value="users" className="rounded-md">
-            <Users size={16} className="mr-2" />
-            All Users
+          <TabsTrigger value="changes" className="rounded-md text-xs">
+            Changes
           </TabsTrigger>
-          <TabsTrigger value="activity-logs" className="rounded-md">
-            <Eye size={16} className="mr-2" />
-            Activity Logs
+          <TabsTrigger value="email" className="rounded-md text-xs">
+            Email
+          </TabsTrigger>
+          <TabsTrigger value="relationships" className="rounded-md text-xs">
+            <Network size={14} className="mr-1" />
+            Relationships
+          </TabsTrigger>
+          <TabsTrigger value="users" className="rounded-md text-xs">
+            <Users size={14} className="mr-1" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="resources" className="rounded-md text-xs">
+            Resources
+          </TabsTrigger>
+          <TabsTrigger value="activity-logs" className="rounded-md text-xs">
+            <Eye size={14} className="mr-1" />
+            Logs
           </TabsTrigger>
           {isSuperAdmin && (
-            <TabsTrigger value="super" className="rounded-md">
-              <Eye size={16} className="mr-2" />
+            <TabsTrigger value="super" className="rounded-md text-xs col-span-6">
+              <Eye size={14} className="mr-1" />
               Super Admin
             </TabsTrigger>
           )}
@@ -423,7 +388,15 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-base font-medium text-slate-900">{rel.student.full_name || rel.student.email}</h3>
+                            <h3 className="text-base font-medium text-slate-900">
+                              <a 
+                                href={`mailto:${rel.student.email}`}
+                                className="hover:text-[#D4AF37] hover:underline transition-colors"
+                                title={`Email ${rel.student.full_name || rel.student.email}`}
+                              >
+                                {rel.student.full_name || rel.student.email}
+                              </a>
+                            </h3>
                             <span className="px-2 py-1 rounded-lg text-xs bg-green-100 text-green-700 capitalize">
                               {rel.student.role}
                             </span>
@@ -433,7 +406,15 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-slate-600 font-light">{rel.student.email}</p>
+                          <p className="text-sm text-slate-600 font-light">
+                            <a 
+                              href={`mailto:${rel.student.email}`}
+                              className="hover:text-[#D4AF37] hover:underline transition-colors"
+                              title={`Email ${rel.student.email}`}
+                            >
+                              {rel.student.email}
+                            </a>
+                          </p>
                         </div>
                         <Button
                           size="sm"
@@ -461,8 +442,22 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                               {rel.parents.map((parent) => (
                                 <div key={parent.id} className="flex items-center justify-between bg-orange-50/50 rounded-md p-2">
                                   <div>
-                                    <p className="text-sm text-slate-900 font-light">{parent.full_name || parent.email}</p>
-                                    <p className="text-xs text-slate-500 font-light">{parent.email}</p>
+                                    <p className="text-sm text-slate-900 font-light">
+                                      <a 
+                                        href={`mailto:${parent.email}`}
+                                        className="hover:text-[#D4AF37] hover:underline transition-colors"
+                                      >
+                                        {parent.full_name || parent.email}
+                                      </a>
+                                    </p>
+                                    <p className="text-xs text-slate-500 font-light">
+                                      <a 
+                                        href={`mailto:${parent.email}`}
+                                        className="hover:text-[#D4AF37] hover:underline transition-colors"
+                                      >
+                                        {parent.email}
+                                      </a>
+                                    </p>
                                   </div>
                                   <Button
                                     size="sm"
@@ -473,17 +468,6 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                                       setConfirmAction(async () => {
                                         try {
                                           await deleteParentStudentLink(parent.id, rel.student.id)
-                                          
-                                          // Log the unlink
-                                          await logActivity('unlink', 'parent_student_link', {
-                                            resourceId: rel.student.id,
-                                            description: `Admin unlinked parent ${parent.email} from student ${rel.student.email}`,
-                                            metadata: {
-                                              parent_id: parent.id,
-                                              student_id: rel.student.id,
-                                            },
-                                          })
-
                                           await loadData()
                                           showNotification("Parent unlinked successfully!", "success")
                                           setShowConfirmDialog(false)
@@ -532,8 +516,22 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                               {rel.mentors.map((mentor) => (
                                 <div key={mentor.id} className="flex items-center justify-between bg-blue-50/50 rounded-md p-2">
                                   <div>
-                                    <p className="text-sm text-slate-900 font-light">{mentor.full_name || mentor.email}</p>
-                                    <p className="text-xs text-slate-500 font-light">{mentor.email}</p>
+                                    <p className="text-sm text-slate-900 font-light">
+                                      <a 
+                                        href={`mailto:${mentor.email}`}
+                                        className="hover:text-[#D4AF37] hover:underline transition-colors"
+                                      >
+                                        {mentor.full_name || mentor.email}
+                                      </a>
+                                    </p>
+                                    <p className="text-xs text-slate-500 font-light">
+                                      <a 
+                                        href={`mailto:${mentor.email}`}
+                                        className="hover:text-[#D4AF37] hover:underline transition-colors"
+                                      >
+                                        {mentor.email}
+                                      </a>
+                                    </p>
                                   </div>
                                   <Button
                                     size="sm"
@@ -544,22 +542,11 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                                       setConfirmAction(async () => {
                                         try {
                                           await deleteMentorStudentLink(mentor.id, rel.student.id)
-                                          
-                                          // Log the unlink
-                                          await logActivity('unlink', 'mentor_student_link', {
-                                            resourceId: rel.student.id,
-                                            description: `Admin unlinked mentor ${mentor.email} from student ${rel.student.email}`,
-                                            metadata: {
-                                              mentor_id: mentor.id,
-                                              student_id: rel.student.id,
-                                            },
-                                          })
-
                                           await loadData()
                                           showNotification("Mentor unlinked successfully!", "success")
                                           setShowConfirmDialog(false)
                                         } catch (error) {
-                                          console.error("Error unlinking mentor:", error)
+                                          logger.error("Error unlinking mentor", error, { mentorId: mentor.id, studentId: rel.student.id })
                                           showNotification("Failed to unlink mentor. Please try again.", "error")
                                           setShowConfirmDialog(false)
                                         }
@@ -677,8 +664,24 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
               <TableBody>
                 {allUsers.map((user) => (
                   <TableRow key={user.id} className="border-slate-200 hover:bg-slate-50/50">
-                    <TableCell className="text-sm text-slate-900 font-light">{user.full_name || "—"}</TableCell>
-                    <TableCell className="text-sm text-slate-700 font-light">{user.email}</TableCell>
+                    <TableCell className="text-sm text-slate-900 font-light">
+                      <a 
+                        href={`mailto:${user.email}`}
+                        className="hover:text-[#D4AF37] hover:underline transition-colors"
+                        title={`Email ${user.full_name || user.email}`}
+                      >
+                        {user.full_name || "—"}
+                      </a>
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-700 font-light">
+                      <a 
+                        href={`mailto:${user.email}`}
+                        className="hover:text-[#D4AF37] hover:underline transition-colors"
+                        title={`Email ${user.email}`}
+                      >
+                        {user.email}
+                      </a>
+                    </TableCell>
                     <TableCell className="text-sm text-slate-700 font-light">
                       <span className={`px-2 py-1 rounded-lg text-xs capitalize ${
                         user.role === "admin" ? "bg-purple-100 text-purple-700" :
@@ -815,6 +818,38 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
 
         </TabsContent>
 
+        <TabsContent value="activity-dashboard" className="space-y-6 mt-6">
+          <AdminActivityDashboard 
+            onUserClick={(userId) => {
+              const user = allUsers.find(u => u.id === userId)
+              if (user) {
+                setEditingUser(user)
+                setShowEditDialog(true)
+              }
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="changes" className="space-y-6 mt-6">
+          <AdminChangesView
+            onUserClick={(userId) => {
+              const user = allUsers.find(u => u.id === userId)
+              if (user) {
+                setEditingUser(user)
+                setShowEditDialog(true)
+              }
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-6 mt-6">
+          <AdminEmailSender onEmailSent={loadData} />
+        </TabsContent>
+
+        <TabsContent value="resources" className="space-y-6 mt-6">
+          <AdminResourceManager />
+        </TabsContent>
+
         <TabsContent value="activity-logs" className="space-y-6 mt-6">
           <ActivityLogViewer />
         </TabsContent>
@@ -823,7 +858,7 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
           <TabsContent value="super" className="space-y-6 mt-6">
             <Card className="bg-white border-slate-200 rounded-lg">
               <CardHeader>
-                <CardTitle className="text-lg font-light text-slate-900">Super Admin — All Users</CardTitle>
+                <CardTitle className="text-lg font-light text-slate-900">Super Admin: All Users</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -845,20 +880,36 @@ export function AdminView({ onImpersonate }: AdminViewProps) {
                           <TableCell className="text-sm text-slate-900 font-light">{user.full_name || "—"}</TableCell>
                           <TableCell className="text-sm text-slate-700 font-light">{user.email}</TableCell>
                           <TableCell className="text-sm text-slate-700 font-light">
-                            <Select
-                              value={user.role}
-                              onValueChange={(value) => handleQuickUpdate(user.id, { role: value as UserRole })}
-                            >
-                              <SelectTrigger className="rounded-lg h-9 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-lg">
-                                <SelectItem value="student">Student</SelectItem>
-                                <SelectItem value="parent">Parent</SelectItem>
-                                <SelectItem value="mentor">Mentor</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={user.role}
+                                onValueChange={(value) => {
+                                  setConfirmMessage(`Change ${user.full_name || user.email} role from ${user.role} to ${value}?`)
+                                  setConfirmAction(async () => {
+                                    await handleQuickUpdate(user.id, { role: value as UserRole })
+                                    setShowConfirmDialog(false)
+                                  })
+                                  setShowConfirmDialog(true)
+                                }}
+                              >
+                                <SelectTrigger className="rounded-lg h-9 text-xs min-w-[100px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-lg">
+                                  <SelectItem value="student">Student</SelectItem>
+                                  <SelectItem value="parent">Parent</SelectItem>
+                                  <SelectItem value="mentor">Mentor</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <a
+                                href={`mailto:${user.email}`}
+                                className="text-xs text-slate-500 hover:text-slate-700 underline"
+                                title="Send email"
+                              >
+                                📧
+                              </a>
+                            </div>
                           </TableCell>
                           <TableCell className="text-sm text-slate-700 font-light">
                             <Select

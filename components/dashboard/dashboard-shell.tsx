@@ -46,7 +46,7 @@ export function DashboardShell({
         onMobileClose={() => setIsMobileMenuOpen(false)}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+      <main className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <Header
           studentName={studentName}
           courseLabel={courseLabel}
@@ -57,9 +57,9 @@ export function DashboardShell({
           onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
-        {/* Main Content Area - Light background for readability */}
+        {/* Main Content Area - Premium light background for readability */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-4 sm:p-6 md:p-8">{children}</div>
+          <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full">{children}</div>
         </div>
       </main>
     </div>

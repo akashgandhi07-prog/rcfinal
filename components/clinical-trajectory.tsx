@@ -22,7 +22,7 @@ export function ClinicalTrajectory() {
       title: "The Elite Candidacy",
       years: "Years 12 to 13",
       subtitle: "Precision Execution",
-      body: "The culmination of strategic preparation. This comprehensive programme orchestrates every element of the application with surgical precision. From UCAT excellence to personal statement refinement, from university selection to interview mastery, we provide end to end mentorship working exclusively with practicing NHS Consultants, GDC Dentists, and RCVS Vets. We deliver the insider knowledge and strategic acumen that secures offers at the most competitive institutions.",
+      body: "The culmination of strategic preparation. This comprehensive programme orchestrates every element of the application with surgical precision. From UCAT excellence to personal statement refinement, from university selection to interview mastery, we provide end to end mentorship working exclusively with practising NHS Consultants, GDC Dentists, and RCVS Vets. We deliver the insider knowledge and strategic acumen that secures offers at the most competitive institutions.",
       focus: "UCAT, Personal Statement, Interview Strategy.",
     },
   ]

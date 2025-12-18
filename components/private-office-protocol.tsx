@@ -18,7 +18,7 @@ export function PrivateOfficeProtocol() {
     {
       icon: Lock,
       title: "Absolute Discretion",
-      description: "Strict NDAs and confidentiality for high-profile families.",
+      description: "Strict NDAs and confidentiality for high profile families.",
     },
     {
       icon: Users,

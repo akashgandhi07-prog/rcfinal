@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import { validateEmail } from "@/lib/utils/validation"
+
+const STORAGE_KEY = "suitability-assessment-form-data"
 
 // Countries list with flags (same as phone-input)
 const COUNTRIES = [
@@ -157,20 +159,25 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
       if (!response.ok) throw new Error("Failed to send email")
 
       setSubmitStatus("success")
-      setFormData({
-        firstName: "", lastName: "", email: "", phoneNumber: "", isStudent: "",
-        country: "", feeStatus: "", schoolName: "", universityEntryYear: "",
-        subject: "", studentDOB: "", yearOfStudy: "", howDidYouHearAboutUs: "", notes: "",
-      })
-      setStep(1)
-      setHasSubmitted(false)
+      // Clear saved form data from localStorage on successful submission
+      try {
+        localStorage.removeItem(STORAGE_KEY)
+      } catch (error) {
+        console.error("Error clearing saved form data:", error)
+      }
       
+      // Don't close immediately - show success message for longer
       setTimeout(() => {
-        setIsOpen(false)
-        setSubmitStatus("idle")
+        setFormData({
+          firstName: "", lastName: "", email: "", phoneNumber: "", isStudent: "",
+          country: "", feeStatus: "", schoolName: "", universityEntryYear: "",
+          subject: "", studentDOB: "", yearOfStudy: "", howDidYouHearAboutUs: "", notes: "",
+        })
         setStep(1)
         setHasSubmitted(false)
-      }, 2000)
+        setIsOpen(false)
+        setSubmitStatus("idle")
+      }, 5000)
     } catch (error) {
       console.error("Error submitting form:", error)
       setSubmitStatus("error")
@@ -179,6 +186,40 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
       setIsSubmitting(false)
     }
   }
+
+  // Load saved form data from localStorage when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed.formData) {
+            setFormData(parsed.formData)
+          }
+          if (parsed.step && [1, 2, 3].includes(parsed.step)) {
+            setStep(parsed.step as 1 | 2 | 3)
+          }
+        }
+      } catch (error) {
+        console.error("Error loading saved form data:", error)
+      }
+    }
+  }, [isOpen])
+
+  // Auto-save form data to localStorage whenever formData or step changes
+  useEffect(() => {
+    if (isOpen && !hasSubmitted) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          formData,
+          step,
+        }))
+      } catch (error) {
+        console.error("Error saving form data:", error)
+      }
+    }
+  }, [formData, step, isOpen, hasSubmitted])
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -191,6 +232,12 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
     setHasSubmitted(false)
     setCountrySearch("")
     setShowCountryDropdown(false)
+    // Clear saved form data from localStorage
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch (error) {
+      console.error("Error clearing saved form data:", error)
+    }
   }
 
   return (
@@ -353,7 +400,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                               <button
                                 key={country.label}
                                 type="button"
-                                className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
+                                className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm text-slate-900"
                                 onClick={() => {
                                   updateField("country", country.label)
                                   setCountrySearch("")
@@ -361,7 +408,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
                                 }}
                               >
                                 <span>{country.flag}</span>
-                                <span>{country.label}</span>
+                                <span className="text-slate-900">{country.label}</span>
                               </button>
                             ))}
                           </div>
@@ -525,9 +572,12 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
               )}
 
               {submitStatus === "success" && (
-                <div className="mt-5 p-3 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
-                  <p className="text-sm text-green-800">
-                    Thank you! Your assessment request has been submitted successfully.
+                <div className="mt-5 p-6 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
+                  <h4 className="text-lg font-semibold text-green-900 mb-2">
+                    Thank You!
+                  </h4>
+                  <p className="text-sm text-green-800 leading-relaxed">
+                    We have received your suitability assessment request. Thank you for contacting us. We will be in touch with you shortly.
                   </p>
                 </div>
               )}

@@ -22,9 +22,9 @@ export function CandidacyQueries() {
         "Year 11 is optimal for profiling and early strategy development, with our comprehensive programme designed to secure guaranteed placement pathways for Year 12 and Year 13. Year 12 is the standard execution phase for most candidates. Early engagement allows for more comprehensive professional exposure and stronger personal statement development, ensuring candidates are fully prepared and positioned for success when application cycles begin.",
     },
     {
-      question: "Do you work with schools and admissions counsellors?",
+      question: "Do you work with schools, admissions counsellors, and agents?",
       answer:
-        "Yes. We partner with leading international schools and independent admissions counsellors worldwide, serving as the expert authority on UK medical school admissions. Our team provides strategic consultation, training, and support to counsellors, ensuring they can offer their students the most current and effective guidance. We work collaboratively with educational institutions across the globe, from IB schools in Asia and the Middle East to American curriculum schools in Europe, providing bespoke support that complements existing counselling services.",
+        "Yes. We partner with leading international schools, independent admissions counsellors, and education agents worldwide, serving as the expert authority on UK medical school admissions. Our team provides strategic consultation, training, and support to counsellors and agents, ensuring they can offer their students the most current and effective guidance. We work collaboratively with educational institutions and recruitment partners across the globe, from IB schools in Asia and the Middle East to American curriculum schools in Europe, providing bespoke support that complements existing counselling services.",
     },
   ]
 

@@ -13,19 +13,19 @@ export function StrategicRoadmap() {
     {
       phase: 2,
       title: "Professional Portfolio Development & Supracurricular Excellence",
-      description: "Curated placement of high-impact professional work experience, structured volunteering programmes, and research opportunities. Our network of NHS Consultants, research institutions, and professional settings ensures each candidate builds a distinguished portfolio that demonstrates genuine commitment to professional practice. We orchestrate placements that showcase leadership, empathy, and intellectual curiosity—the hallmarks of exceptional medical candidates.",
+      description: "Curated placement of high impact professional work experience, structured volunteering programmes, and research opportunities. Our network of NHS Consultants, research institutions, and professional settings ensures each candidate builds a distinguished portfolio that demonstrates genuine commitment to professional practice. We orchestrate placements that showcase leadership, empathy, and intellectual curiosity: the hallmarks of exceptional medical candidates.",
       position: "right",
     },
     {
       phase: 3,
-      title: "High-Performance Admissions Testing (UCAT)",
-      description: "Intensive, customised coaching for the UCAT. Delivered by Mentors with a proven track record of high-performance scoring to secure competitive results.",
+      title: "High Performance Admissions Testing (UCAT)",
+      description: "Intensive, customised coaching for the UCAT. Delivered by Mentors with a proven track record of high performance scoring to secure competitive results.",
       position: "left",
     },
     {
       phase: 4,
       title: "Crafting the 'Professional Persona' (Personal Statement)",
-      description: "Personal Statement Construction: Narrative creation and line-by-line editing by practicing NHS Consultants. We ensure the crafting of a compelling Professional Persona that resonates with admissions committees.",
+      description: "Personal Statement Construction: Narrative creation and line by line editing by practising NHS Consultants. We ensure the crafting of a compelling Professional Persona that resonates with admissions committees.",
       position: "right",
     },
     {
@@ -52,7 +52,7 @@ export function StrategicRoadmap() {
           transition={{ duration: 0.8 }}
           className="text-center mb-12 sm:mb-16 md:mb-20"
         >
-          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white mb-3 sm:mb-4 font-light">The Candidacy Roadmap (Year 12-13)</h2>
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-white mb-3 sm:mb-4 font-light">The Candidacy Roadmap (Year 12 to 13)</h2>
         </motion.div>
 
         <div className="max-w-4xl mx-auto relative">

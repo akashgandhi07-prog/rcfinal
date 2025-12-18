@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Plus, TrendingUp, Award, ClipboardList, Pencil, Trash2, Calendar, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,12 +14,13 @@ import { MentorComments } from "@/components/portal/mentor-comments"
 import { getCurrentUser, getUCATMocks, createUCATMock, updateUCATMock, deleteUCATMock } from "@/lib/supabase/queries"
 import type { User } from "@/lib/supabase/types"
 import type { UCATMock as DBUCATMock } from "@/lib/supabase/types"
-import { useUndoRedo } from "@/lib/hooks/use-undo-redo"
-import { useAutoSave } from "@/lib/hooks/use-auto-save"
-import { SaveStatusIndicator } from "@/components/ui/save-status"
-import { UndoRedoButtons } from "@/components/ui/undo-redo-buttons"
+// Auto-save and undo/redo removed - using manual save
 import { exportToCSV, exportToJSON } from "@/lib/utils/export"
-import { Download } from "lucide-react"
+import { Download, FileText } from "lucide-react"
+import { generateUCATReport } from "@/lib/utils/pdf-generator"
+import { getUserById } from "@/lib/supabase/queries"
+import { logger } from "@/lib/utils/logger"
+import { showNotification } from "@/components/ui/notification"
 
 interface UCATMock {
   id: string
@@ -71,101 +72,62 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
   const canEdit = viewMode === "student" || viewMode === "mentor"
   const [mocks, setMocks] = useState<UCATMock[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [studentData, setStudentData] = useState<User | null>(null)
 
-  // Undo/Redo functionality
-  const {
-    state: mocksState,
-    setState: setMocksState,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-  } = useUndoRedo<UCATMock[]>(mocks)
-
-  // Track if we're applying undo/redo to prevent loops
-  const isApplyingUndoRedo = useRef(false)
-
-  // Sync undo/redo state with mocks (when mocks change from user actions)
-  useEffect(() => {
-    if (!isApplyingUndoRedo.current) {
-      const mocksStr = JSON.stringify(mocks)
-      const stateStr = JSON.stringify(mocksState)
-      if (mocksStr !== stateStr) {
-        setMocksState(mocks)
-      }
-    }
-  }, [mocks])
-
-  // Apply undo/redo changes
-  useEffect(() => {
-    const mocksStr = JSON.stringify(mocks)
-    const stateStr = JSON.stringify(mocksState)
-    if (stateStr !== mocksStr) {
-      isApplyingUndoRedo.current = true
-      setMocks(mocksState)
-      setTimeout(() => {
-        isApplyingUndoRedo.current = false
-      }, 0)
-    }
-  }, [mocksState])
-
-  // Auto-save functionality
-  const { saveStatus, lastSaved, error: saveError, manualSave } = useAutoSave({
-    data: mocks,
-    onSave: async (data) => {
-      if (!displayStudentId) return false
+  // Manual save functionality
+  const [isSaving, setIsSaving] = useState(false)
+  
+  const handleSave = async () => {
+    if (!displayStudentId || !canEdit) return
+    
+    setIsSaving(true)
+    try {
+      // Get current mocks from DB to check for conflicts
+      const dbMocks = await getUCATMocks(displayStudentId)
+      const dbMockIds = new Set(dbMocks.map(m => m.id))
+      const localMockIds = new Set(mocks.map(m => m.id))
       
-      try {
-        // Get current mocks from DB to check for conflicts
-        const dbMocks = await getUCATMocks(displayStudentId)
-        const dbMockIds = new Set(dbMocks.map(m => m.id))
-        const localMockIds = new Set(data.map(m => m.id))
-        
-        // Create a copy to avoid mutation
-        const dataCopy = [...data]
-        
-        // Save all mocks
-        const savePromises = dataCopy.map(async (mock, index) => {
-          const dbMock = componentMockToDB(mock)
-          if (dbMockIds.has(mock.id)) {
-            // Update existing
-            const result = await updateUCATMock(mock.id, dbMock)
-            return { success: result !== null, mock, index }
-          } else {
-            // Create new - check if it's a temporary ID (timestamp string)
-            const isTemporaryId = /^\d+$/.test(mock.id) && mock.id.length > 10
-            if (isTemporaryId) {
-              const result = await createUCATMock(displayStudentId, dbMock)
-              if (result) {
-                // Update local state with real ID
-                setMocks(prev => prev.map(m => m.id === mock.id ? dbMockToComponent(result) : m))
-                return { success: true, mock: dbMockToComponent(result), index }
-              }
-              return { success: false, mock, index }
+      // Create a copy to avoid mutation
+      const dataCopy = [...mocks]
+      
+      // Save all mocks
+      const savePromises = dataCopy.map(async (mock) => {
+        const dbMock = componentMockToDB(mock)
+        if (dbMockIds.has(mock.id)) {
+          // Update existing
+          return await updateUCATMock(mock.id, dbMock)
+        } else {
+          // Create new - check if it's a temporary ID (timestamp string)
+          const isTemporaryId = /^\d+$/.test(mock.id) && mock.id.length > 10
+          if (isTemporaryId) {
+            const result = await createUCATMock(displayStudentId, dbMock)
+            if (result) {
+              // Update local state with real ID
+              setMocks(prev => prev.map(m => m.id === mock.id ? dbMockToComponent(result) : m))
             }
-            return { success: true, mock, index }
+            return result
           }
-        })
+          return null
+        }
+      })
 
-        // Delete mocks that are no longer in local state
-        const deletePromises = dbMocks
-          .filter(dbMock => !localMockIds.has(dbMock.id))
-          .map(dbMock => deleteUCATMock(dbMock.id))
+      // Delete mocks that are no longer in local state
+      const deletePromises = dbMocks
+        .filter(dbMock => !localMockIds.has(dbMock.id))
+        .map(dbMock => deleteUCATMock(dbMock.id))
 
-        const results = await Promise.all(savePromises)
-        await Promise.all(deletePromises)
-        
-        // Check if all saves succeeded
-        const allSucceeded = results.every(r => r.success)
-        return allSucceeded
-      } catch (error) {
-        console.error("Error auto-saving mocks:", error)
-        return false
-      }
-    },
-    debounceMs: 2000,
-    enabled: canEdit,
-  })
+      await Promise.all(savePromises)
+      await Promise.all(deletePromises)
+      
+      showNotification("UCAT data saved successfully", "success")
+    } catch (error) {
+      logger.error("Error saving mocks", error, { studentId: displayStudentId })
+      showNotification("Failed to save UCAT data", "error")
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   // Helper function to convert DB format to component format
   const dbMockToComponent = (dbMock: DBUCATMock): UCATMock => ({
@@ -191,31 +153,90 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
     sjt_band: mock.sjt,
   })
 
-  // Load mocks from Supabase
+  // Load mocks and student data from Supabase
   useEffect(() => {
+    let mounted = true
+    
     const loadMocks = async () => {
       const targetStudentId = studentId || currentUserId
       if (!targetStudentId) {
-        setIsLoading(false)
+        if (mounted) setIsLoading(false)
         return
       }
       
-      setIsLoading(true)
+      if (mounted) setIsLoading(true)
       try {
-        const dbMocks = await getUCATMocks(targetStudentId)
+        const [dbMocks, student] = await Promise.all([
+          getUCATMocks(targetStudentId),
+          getUserById(targetStudentId),
+        ])
+        
+        if (!mounted) return
+        
         const componentMocks = dbMocks.map(dbMockToComponent)
         setMocks(componentMocks)
-        // Initialize undo/redo with loaded data
-        setMocksState(componentMocks)
+        if (student) {
+          setStudentData(student)
+        }
       } catch (error) {
-        console.error("Error loading UCAT mocks:", error)
+        if (mounted) {
+          logger.error("Error loading UCAT mocks", error, { studentId: targetStudentId })
+        }
       } finally {
-        setIsLoading(false)
+        if (mounted) setIsLoading(false)
       }
     }
     
     loadMocks()
+    
+    return () => {
+      mounted = false
+    }
   }, [studentId, currentUserId])
+
+  // Handler for PDF download
+  const handleDownloadPDF = async () => {
+    if (!displayStudentId || !studentData) return
+
+    setIsGeneratingPDF(true)
+    try {
+      // Get DB format mocks for PDF
+      const dbMocks = await getUCATMocks(displayStudentId)
+      
+      // Convert to format expected by PDF generator
+      const pdfMocks = dbMocks.map(mock => {
+        // Convert SJT band string to number (e.g., "Band 1" -> 1, "Band 2" -> 2)
+        let sjtValue: number | null = null
+        if (mock.sjt_band) {
+          const bandMatch = mock.sjt_band.match(/Band\s*(\d+)/i)
+          if (bandMatch) {
+            sjtValue = parseInt(bandMatch[1], 10)
+          }
+        }
+        
+        return {
+          mock_date: mock.date,
+          mock_name: mock.mock_name,
+          verbal_reasoning: mock.vr_score,
+          decision_making: mock.dm_score,
+          quantitative_reasoning: mock.qr_score,
+          abstract_reasoning: mock.ar_score,
+          situational_judgement: sjtValue,
+          total_score: mock.total_score,
+        }
+      })
+
+      await generateUCATReport({
+        student: studentData,
+        mocks: pdfMocks,
+      })
+    } catch (error) {
+      logger.error("Error generating PDF", error, { studentId: displayStudentId })
+      showNotification("Failed to generate PDF report. Please try again.", "error")
+    } finally {
+      setIsGeneratingPDF(false)
+    }
+  }
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -386,23 +407,7 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
     // Auto-save will handle the deletion
   }
 
-  // Keyboard shortcuts for undo/redo
-  useEffect(() => {
-    if (!canEdit) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        if (canUndo) undo()
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault()
-        if (canRedo) redo()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [canEdit, canUndo, canRedo, undo, redo])
+  // Keyboard shortcuts removed - undo/redo functionality removed
 
   if (isLoading) {
     return (
@@ -456,15 +461,13 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
           <h2 className="text-xl font-light text-slate-900">Performance Analytics</h2>
           <p className="text-sm text-slate-600 mt-1 font-light">Track your UCAT mock exam progress</p>
           {canEdit && (
-            <div className="flex items-center gap-3 mt-2">
-              <SaveStatusIndicator status={saveStatus} lastSaved={lastSaved} />
-              <UndoRedoButtons 
-                onUndo={undo} 
-                onRedo={redo} 
-                canUndo={canUndo} 
-                canRedo={canRedo} 
-              />
-            </div>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="mt-2 bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 rounded-lg"
+            >
+              {isSaving ? "Saving..." : "Save UCAT Data"}
+            </Button>
           )}
         </div>
 
@@ -730,16 +733,29 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
       <Card className="bg-white border-slate-200 rounded-lg shadow-sm">
         <CardHeader className="border-b border-slate-200 flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-light text-slate-900">Mock Exam History</CardTitle>
-          {canEdit && mocks.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={handleClearAllClick}
-              className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-lg transition-all"
-            >
-              <Trash2 size={14} className="mr-2" />
-              Clear All Mocks
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {mocks.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+                className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 border-[#D4AF37] rounded-lg transition-all font-light"
+              >
+                <FileText size={14} className="mr-2" />
+                {isGeneratingPDF ? "Generating..." : "Download PDF Report"}
+              </Button>
+            )}
+            {canEdit && mocks.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleClearAllClick}
+                className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-lg transition-all"
+              >
+                <Trash2 size={14} className="mr-2" />
+                Clear All Mocks
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="overflow-x-auto">

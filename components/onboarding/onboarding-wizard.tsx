@@ -699,7 +699,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <div>
                   <h2 className="text-3xl font-serif text-slate-900 mb-2 font-light">Course Selection</h2>
                   <p className="text-sm text-slate-600 font-light">
-                    Select your target course. This will customize your dashboard experience.
+                    Select your target course. This will customise your dashboard experience.
                   </p>
                 </div>
 

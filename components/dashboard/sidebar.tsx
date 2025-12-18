@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, Brain, Briefcase, Target, Settings, User, MessageSquare, Shield, X } from "lucide-react"
+import { LayoutDashboard, Brain, Briefcase, Target, Settings, User, MessageSquare, MessageCircle, Shield, X, BookOpen } from "lucide-react"
 import type { ActiveView, ViewMode } from "@/app/portal/page"
 
 interface SidebarProps {
@@ -22,6 +22,8 @@ export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true, i
     ...(showUCAT ? [{ id: "ucat" as ActiveView, icon: Brain, label: "UCAT Performance" }] : []),
     { id: "strategy" as ActiveView, icon: Target, label: "University Strategy" },
     { id: "interview" as ActiveView, icon: MessageSquare, label: "Interview Prep" },
+    { id: "messages" as ActiveView, icon: MessageCircle, label: "Messages" },
+    { id: "resources" as ActiveView, icon: BookOpen, label: "Resource Library" },
     { id: "settings" as ActiveView, icon: Settings, label: "Settings" },
   ]
 
@@ -116,7 +118,7 @@ export function Sidebar({ activeView, onViewChange, viewMode, showUCAT = true, i
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs sm:text-sm font-light text-slate-200 truncate">{/* user name handled in header */}</p>
-            <p className="text-xs text-slate-400 capitalize font-light truncate">{viewMode}</p>
+            <p className="text-xs text-slate-400 capitalize font-light truncate">{isAdmin ? "admin" : viewMode}</p>
           </div>
         </div>
       </div>

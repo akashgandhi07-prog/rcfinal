@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar, FileText, Video } from "lucide-react"
 
 interface InterviewPrepProps {
-  viewMode: "student" | "parent"
+  viewMode: "student" | "parent" | "mentor"
 }
 
 export function InterviewPrep({ viewMode }: InterviewPrepProps) {

@@ -30,7 +30,7 @@ export function ClinicalBoard() {
       credential: "RCVS Registered Veterinary Surgeon",
       graduation: "Royal Veterinary College",
       image: "/regents-consultancy-board-veterinary.png",
-      profile: "Graduated from the Royal Veterinary College. RCVS Registered Veterinary Surgeon with over 12 years of professional practice and admissions coaching. Expert in veterinary school admissions strategy, having mentored candidates across all UK veterinary programmes. Specialises in helping international students navigate the competitive veterinary admissions landscape. Known for exceptional interview preparation, combining professional insight with strategic candidacy development to secure placements at top-tier institutions.",
+      profile: "Graduated from the Royal Veterinary College. RCVS Registered Veterinary Surgeon with over 12 years of professional practice and admissions coaching. Expert in veterinary school admissions strategy, having mentored candidates across all UK veterinary programmes. Specialises in helping international students navigate the competitive veterinary admissions landscape. Known for exceptional interview preparation, combining professional insight with strategic candidacy development to secure placements at top tier institutions.",
     },
   ]
 
@@ -88,7 +88,7 @@ export function ClinicalBoard() {
                 {/* Text content */}
                 <div className="flex-1 flex flex-col w-full">
                   {/* Name and credentials - clean and compact */}
-                  <div className="text-left mb-3">
+                  <div className="text-center mb-3">
                     <div className="flex flex-wrap items-baseline gap-3 mb-1.5">
                       <h3 className="font-serif text-xl sm:text-2xl md:text-3xl text-white font-light leading-tight">
                         {consultant.name}

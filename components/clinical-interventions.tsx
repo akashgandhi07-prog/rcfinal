@@ -8,7 +8,7 @@ export function ClinicalInterventions() {
       title: "The Reticent Scholar",
       before: "Candidate A had 4 A*s but failed 3 interviews.",
       diagnosis: "Lack of empathy in communication.",
-      intervention: "Bespoke Interview Strategy. Intensive 1-to-1 MMI simulation with expert NHS doctors.",
+      intervention: "Bespoke Interview Strategy. Intensive 1 to 1 MMI simulation with expert NHS doctors.",
       outcome: "Offer secured.",
     },
     {

@@ -9,7 +9,7 @@ import { getUniversitiesByCourse, type University } from "@/lib/universities"
 import type { User } from "@/lib/supabase/types"
 
 interface StrategyKanbanProps {
-  viewMode: "student" | "parent"
+  viewMode: "student" | "parent" | "mentor"
   userData?: User | null
 }
 
