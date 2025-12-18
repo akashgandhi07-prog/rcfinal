@@ -336,32 +336,43 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setIsLoading(true)
 
     try {
-      // Check if admin accounts exist
-      const { data: adminUsers, error: adminCheckError } = await supabase
-        .from("users")
-        .select("id, email, full_name")
-        .eq("role", "admin")
-        .order("created_at", { ascending: false })
-        .limit(5)
-
-      if (adminCheckError) {
-        logger.error("Error checking admin users", adminCheckError)
-      }
-
       // Store admin access grant in sessionStorage (expires when tab closes)
       sessionStorage.setItem("admin_access_granted", "true")
       sessionStorage.setItem("admin_access_timestamp", Date.now().toString())
+
+      // Try to check if admin accounts exist (may fail due to RLS if not authenticated)
+      // This is just for informational purposes - the actual admin check happens during login
+      let adminUsers: Array<{ email: string }> | null = null
+      try {
+        const { data, error: adminCheckError } = await supabase
+          .from("users")
+          .select("email")
+          .eq("role", "admin")
+          .order("created_at", { ascending: false })
+          .limit(5)
+
+        if (!adminCheckError && data) {
+          adminUsers = data
+        } else if (adminCheckError) {
+          // RLS likely blocked the query - this is expected for unauthenticated users
+          logger.debug("Admin check query blocked (expected for unauthenticated users)", { error: adminCheckError.message })
+        }
+      } catch (queryError) {
+        // Query failed - likely RLS blocking it, which is expected
+        logger.debug("Admin check query failed (expected)", { error: queryError instanceof Error ? queryError.message : String(queryError) })
+      }
 
       // Show success message and close dialog
       setShowAdminDialog(false)
       setIsLoading(false)
       
-      // Show helpful message about admin accounts
+      // Show helpful message about admin access
       if (adminUsers && adminUsers.length > 0) {
         const adminEmails = adminUsers.map(u => u.email).join(", ")
         setSuccessMessage(`Admin access granted! Log in with any admin account (e.g., ${adminEmails.split(",")[0]}) to access admin features.`)
       } else {
-        setSuccessMessage("Admin access granted! However, no admin accounts found. Please create one in the database or contact support.")
+        // If we couldn't check (due to RLS) or no admins found, show generic message
+        setSuccessMessage("Admin access granted! Log in with an admin account to access admin features. If you don't have an admin account, contact support.")
       }
     } catch (err) {
       logger.error("Admin login error", err)
