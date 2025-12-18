@@ -297,17 +297,36 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         if (insertError) {
           logger.error("Error creating user profile for signup", insertError, {
             code: insertError.code,
-            // Don't log sensitive details
+            message: insertError.message,
+            userId: data.user.id,
+            email: normalizedEmail,
           })
           
-          // Show user-friendly error without exposing technical details
-          setError(
-            "Account created but profile setup failed. Please contact support for assistance."
-          )
+          // Provide more specific error messages
+          if (insertError.code === "42501" || insertError.message?.includes("permission") || insertError.message?.includes("policy")) {
+            setError(
+              "Account created but profile setup failed due to permissions. This may be a configuration issue. Please contact support."
+            )
+          } else if (insertError.code === "23505") {
+            setError(
+              "An account with this email already exists. Please sign in instead."
+            )
+          } else {
+            setError(
+              `Account created but profile setup failed: ${insertError.message || "Unknown error"}. Please contact support.`
+            )
+          }
+          setIsLoading(false)
           return
         }
         
         // Activity logging removed
+      } else {
+        // Auth user creation succeeded but no user returned
+        logger.warn("Signup succeeded but no user data returned", { email: normalizedEmail })
+        setError("Account creation may have succeeded, but we couldn't verify it. Please try signing in.")
+        setIsLoading(false)
+        return
       }
 
       setSuccessMessage(

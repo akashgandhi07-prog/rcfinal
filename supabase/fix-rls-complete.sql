@@ -7,6 +7,12 @@
 -- STEP 1: Create security definer function to check admin role
 -- This function bypasses RLS to check user role (prevents infinite recursion)
 -- ============================================
+
+-- Drop the function if it exists (to ensure clean recreation)
+DROP FUNCTION IF EXISTS public.is_admin(UUID);
+DROP FUNCTION IF EXISTS public.is_admin();
+
+-- Create the security definer function
 CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID DEFAULT auth.uid())
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -26,9 +32,11 @@ BEGIN
 END;
 $$;
 
--- Grant execute permission to authenticated users
+-- Grant execute permission to authenticated users and anon (for signup)
 GRANT EXECUTE ON FUNCTION public.is_admin(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO anon;
 
 -- ============================================
 -- STEP 2: Drop ALL existing policies on users table

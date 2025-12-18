@@ -128,8 +128,8 @@ export default function PortalPage() {
         return
       }
 
-      // Get user with cache (faster)
-      const currentUser = await getCurrentUser()
+      // Get user - force refresh to ensure we have latest role data
+      const currentUser = await getCurrentUser(true) // Force refresh to get latest role
 
       if (!currentUser) {
         setIsAuthenticated(false)
@@ -152,7 +152,13 @@ export default function PortalPage() {
         })
         if (updated) {
           clearUserCache() // Clear cache after update
-          setUser(updated)
+          // Force refresh again to get updated user
+          const refreshedUser = await getCurrentUser(true)
+          if (refreshedUser) {
+            setUser(refreshedUser)
+          } else {
+            setUser(updated)
+          }
           if (adminAccessGranted) {
             sessionStorage.removeItem("admin_access_granted")
             sessionStorage.removeItem("admin_access_timestamp")

@@ -332,7 +332,21 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
     setIsCreateDialogOpen(false)
     setFormData(emptyFormState)
     
-    // Auto-save will handle the save
+    // Save immediately to database
+    try {
+      const dbMock = componentMockToDB(newMock)
+      const result = await createUCATMock(displayStudentId, dbMock)
+      if (result) {
+        // Update local state with real ID from database
+        setMocks(prev => prev.map(m => m.id === newMock.id ? dbMockToComponent(result) : m))
+        showNotification("Mock exam saved successfully", "success")
+      }
+    } catch (error) {
+      logger.error("Error saving mock exam", error, { studentId: displayStudentId })
+      showNotification("Failed to save mock exam. Please try again.", "error")
+      // Remove from local state if save failed
+      setMocks(prev => prev.filter(m => m.id !== newMock.id))
+    }
   }
 
   const handleDelete = (id: string) => {
@@ -389,7 +403,27 @@ export function UCATTracker({ viewMode, studentId }: UCATTrackerProps) {
     setIsEditDialogOpen(false)
     setEditingMock(null)
     
-    // Auto-save will handle the save
+    // Save immediately to database
+    if (!displayStudentId) {
+      showNotification("Cannot save: Student ID not found", "error")
+      return
+    }
+    
+    try {
+      const dbMock = componentMockToDB(updated)
+      await updateUCATMock(editingMock.id, dbMock)
+      showNotification("Mock exam updated successfully", "success")
+    } catch (error) {
+      logger.error("Error updating mock exam", error, { studentId: displayStudentId, mockId: editingMock.id })
+      showNotification("Failed to update mock exam. Please try again.", "error")
+      // Reload mocks to revert optimistic update
+      try {
+        const dbMocks = await getUCATMocks(displayStudentId)
+        setMocks(dbMocks.map(dbMockToComponent))
+      } catch (reloadError) {
+        logger.error("Error reloading mocks after update failure", reloadError)
+      }
+    }
   }
 
   const handleClearAllClick = () => {
