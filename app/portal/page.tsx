@@ -47,7 +47,8 @@ export default function PortalPage() {
 
     // Set admin flags
     setIsAdmin(user.role === "admin")
-    setIsSuperAdmin(user.email === "akashgandhi07@gmail.com")
+    const adminEmails = ["akashgandhi07@gmail.com", "akashgandhi07+test@gmail.com"]
+    setIsSuperAdmin(user.email ? adminEmails.includes(user.email.toLowerCase()) : false)
     
     // Set view mode based on role
     if (user.role === "admin") {
@@ -121,7 +122,19 @@ export default function PortalPage() {
         error: sessionError,
       } = await supabase.auth.getSession()
 
-      if (sessionError || !session) {
+      if (sessionError) {
+        // Check for refresh token errors - clear invalid session
+        if (sessionError.message?.includes("Refresh Token") || sessionError.message?.includes("refresh_token")) {
+          logger.warn("Invalid refresh token detected, clearing session", { error: sessionError.message })
+          await supabase.auth.signOut()
+        }
+        setIsAuthenticated(false)
+        setUser(null)
+        setIsLoading(false)
+        return
+      }
+
+      if (!session) {
         setIsAuthenticated(false)
         setUser(null)
         setIsLoading(false)
@@ -143,8 +156,13 @@ export default function PortalPage() {
       const adminAccessTime = typeof window !== "undefined" ? sessionStorage.getItem("admin_access_timestamp") : null
       const isRecentGrant = adminAccessTime && (Date.now() - parseInt(adminAccessTime)) < 3600000 // 1 hour
 
-      // Auto-elevate primary admin or if admin access was granted
-      if ((currentUser.email === "akashgandhi07@gmail.com" || (adminAccessGranted && isRecentGrant)) && currentUser.role !== "admin") {
+      // Auto-elevate admin emails to admin role
+      const adminEmails = ["akashgandhi07@gmail.com", "akashgandhi07+test@gmail.com"]
+      const isAdminEmail = currentUser.email && adminEmails.includes(currentUser.email.toLowerCase())
+      
+      let finalUser = currentUser
+      
+      if ((isAdminEmail || (adminAccessGranted && isRecentGrant)) && currentUser.role !== "admin") {
         const updated = await updateUser(currentUser.id, {
           role: "admin",
           approval_status: "approved",
@@ -155,9 +173,10 @@ export default function PortalPage() {
           // Force refresh again to get updated user
           const refreshedUser = await getCurrentUser(true)
           if (refreshedUser) {
-            setUser(refreshedUser)
-          } else {
-            setUser(updated)
+            finalUser = refreshedUser
+          } else if (updated) {
+            // Fallback to updated user if refresh fails
+            finalUser = updated
           }
           if (adminAccessGranted) {
             sessionStorage.removeItem("admin_access_granted")
@@ -166,8 +185,9 @@ export default function PortalPage() {
         }
       }
 
-      const isAdmin = currentUser.role === "admin"
-      const isApproved = currentUser.approval_status === "approved" || isAdmin
+      // Use finalUser which may have been updated to admin
+      const isAdmin = finalUser.role === "admin"
+      const isApproved = finalUser.approval_status === "approved" || isAdmin
 
       if (!isApproved) {
         await supabase.auth.signOut()
@@ -178,7 +198,7 @@ export default function PortalPage() {
       }
 
       setIsAuthenticated(true)
-      setUser(currentUser)
+      setUser(finalUser)
     } catch (error) {
       logger.error("Auth check error", error)
       setIsAuthenticated(false)

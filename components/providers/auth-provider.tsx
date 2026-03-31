@@ -52,9 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } = await supabase.auth.getSession()
 
         if (sessionError) {
-          logger.error("Session error", sessionError)
+          // Check for refresh token errors - clear invalid session
+          if (sessionError.message?.includes("Refresh Token") || sessionError.message?.includes("refresh_token")) {
+            logger.warn("Invalid refresh token detected, clearing session", { error: sessionError.message })
+            await supabase.auth.signOut()
+          } else {
+            logger.error("Session error", sessionError)
+          }
+          
           if (mounted) {
             setIsAuthenticated(false)
+            setUser(null)
             setIsLoading(false)
           }
           return
@@ -92,6 +100,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (mounted) {
+        // Handle token refresh errors
+        if (event === "TOKEN_REFRESHED" && !session) {
+          // Token refresh failed, sign out
+          logger.warn("Token refresh failed, signing out")
+          await supabase.auth.signOut()
+          clearUserCache()
+          setUser(null)
+          setIsAuthenticated(false)
+          return
+        }
+        
         if (session) {
           // Clear cache on auth state change to force refresh
           clearUserCache()

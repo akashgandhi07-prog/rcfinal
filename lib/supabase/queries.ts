@@ -24,6 +24,16 @@ export async function getCurrentUser(forceRefresh = false): Promise<User | null>
     } = await supabase.auth.getUser()
 
     if (authError || !authUser) {
+      // Check for refresh token errors - these mean the session is invalid
+      if (authError?.message?.includes("Refresh Token") || authError?.message?.includes("refresh_token")) {
+        logger.warn("Invalid refresh token detected, clearing session", { error: authError.message })
+        // Clear invalid session
+        await supabase.auth.signOut()
+        // Clear cache
+        userCache = { user: null, timestamp: 0, userId: null }
+        return null
+      }
+      
       // Clear cache if auth fails
       userCache = { user: null, timestamp: 0, userId: null }
       return null
@@ -49,7 +59,25 @@ export async function getCurrentUser(forceRefresh = false): Promise<User | null>
     if (error) {
       // Check for RLS recursion - this is a critical error that needs fixing
       if (error.code === '42P17' || error.message?.includes('infinite recursion')) {
-        logger.error('RLS infinite recursion detected. Please apply RLS fix script.', error, { userId: authUser.id })
+        logger.error('RLS infinite recursion detected. Please run supabase/fix-rls-complete.sql in Supabase SQL Editor.', error, { userId: authUser.id })
+        
+        // Show user-friendly error message
+        if (typeof window !== 'undefined') {
+          console.error(
+            '%c⚠️ RLS INFINITE RECURSION ERROR',
+            'color: red; font-weight: bold; font-size: 14px;'
+          )
+          console.error(
+            '%cTo fix this, run the SQL script in Supabase:\n' +
+            '1. Go to Supabase Dashboard → SQL Editor\n' +
+            '2. Open: supabase/fix-rls-complete.sql\n' +
+            '3. Copy and paste the entire script\n' +
+            '4. Click Run\n' +
+            '5. Refresh this page',
+            'color: orange; font-size: 12px;'
+          )
+        }
+        
         // Don't cache errors
         return null
       }

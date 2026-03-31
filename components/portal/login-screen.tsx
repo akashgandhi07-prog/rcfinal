@@ -14,6 +14,7 @@ import { Eye, EyeOff, X } from "lucide-react"
 import { validatePasswordStrength } from "@/lib/utils/validation"
 // Activity logging removed
 import { logger } from "@/lib/utils/logger"
+import { clearUserCache } from "@/lib/supabase/queries"
 
 interface LoginScreenProps {
   onLogin?: () => void
@@ -51,9 +52,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   
   // Admin login state
   const [showAdminDialog, setShowAdminDialog] = useState(false)
-  const [adminPassword, setAdminPassword] = useState("")
-  const [adminError, setAdminError] = useState<string | null>(null)
-  const [showAdminPassword, setShowAdminPassword] = useState(false)
 
   const generateCaptcha = () => {
     const a = Math.floor(Math.random() * 5) + 3
@@ -96,6 +94,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       }
 
       if (data.user) {
+        // Admin emails that should automatically get admin role
+        const adminEmails = [
+          "akashgandhi07@gmail.com",
+          "akashgandhi07+test@gmail.com"
+        ]
+        const isAdminEmail = adminEmails.includes(normalizedEmail)
+
         // Fetch user data in parallel with session check for better performance
         const [userDataResult] = await Promise.all([
           supabase.from("users").select("*").eq("id", data.user.id).single(),
@@ -107,30 +112,25 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         if (userError && userError.code === "PGRST116") {
           // User doesn't exist, create them
+          // If it's an admin email, create as admin, otherwise as student
           await supabase.from("users").insert({
             id: data.user.id,
             email: data.user.email,
-            role: "student",
-            onboarding_status: "pending",
-            approval_status: "pending",
+            role: isAdminEmail ? "admin" : "student",
+            onboarding_status: isAdminEmail ? "complete" : "pending",
+            approval_status: isAdminEmail ? "approved" : "pending",
           })
         } else if (userData) {
-          // Check if admin access was granted via password
-          const adminAccessGranted = sessionStorage.getItem("admin_access_granted") === "true"
-          const adminAccessTime = sessionStorage.getItem("admin_access_timestamp")
-          const isRecentGrant = adminAccessTime && (Date.now() - parseInt(adminAccessTime)) < 3600000 // 1 hour
-
-          // Auto-elevate to admin if admin password was entered and it's recent
-          if (adminAccessGranted && isRecentGrant && userData.role !== "admin") {
+          // Auto-elevate to admin if using admin email
+          if (isAdminEmail && userData.role !== "admin") {
             await supabase.from("users").update({
               role: "admin",
               approval_status: "approved",
               onboarding_status: "complete",
             }).eq("id", userData.id)
             
-            // Clear the grant flag
-            sessionStorage.removeItem("admin_access_granted")
-            sessionStorage.removeItem("admin_access_timestamp")
+            // Clear user cache to force refresh
+            clearUserCache()
             
             // Reload user data
             const { data: updatedUser } = await supabase
@@ -346,58 +346,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   }
 
   const handleAdminLogin = async () => {
-    if (adminPassword !== "Junojuno") {
-      setAdminError("Incorrect admin password. Please try again.")
-      return
-    }
-
-    setAdminError(null)
-    setIsLoading(true)
-
-    try {
-      // Store admin access grant in sessionStorage (expires when tab closes)
-      sessionStorage.setItem("admin_access_granted", "true")
-      sessionStorage.setItem("admin_access_timestamp", Date.now().toString())
-
-      // Try to check if admin accounts exist (may fail due to RLS if not authenticated)
-      // This is just for informational purposes - the actual admin check happens during login
-      let adminUsers: Array<{ email: string }> | null = null
-      try {
-        const { data, error: adminCheckError } = await supabase
-          .from("users")
-          .select("email")
-          .eq("role", "admin")
-          .order("created_at", { ascending: false })
-          .limit(5)
-
-        if (!adminCheckError && data) {
-          adminUsers = data
-        } else if (adminCheckError) {
-          // RLS likely blocked the query - this is expected for unauthenticated users
-          logger.debug("Admin check query blocked (expected for unauthenticated users)", { error: adminCheckError.message })
-        }
-      } catch (queryError) {
-        // Query failed - likely RLS blocking it, which is expected
-        logger.debug("Admin check query failed (expected)", { error: queryError instanceof Error ? queryError.message : String(queryError) })
+    // Simply pre-fill the admin email and show instructions
+    setShowAdminDialog(false)
+    setEmail("akashgandhi07@gmail.com")
+    setMode("login")
+    setSuccessMessage("Enter your password to login. Admin accounts are automatically approved.")
+    
+    // Focus the password field after a brief delay
+    setTimeout(() => {
+      const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement
+      if (passwordInput) {
+        passwordInput.focus()
       }
-
-      // Show success message and close dialog
-      setShowAdminDialog(false)
-      setIsLoading(false)
-      
-      // Show helpful message about admin access
-      if (adminUsers && adminUsers.length > 0) {
-        const adminEmails = adminUsers.map(u => u.email).join(", ")
-        setSuccessMessage(`Admin access granted! Log in with any admin account (e.g., ${adminEmails.split(",")[0]}) to access admin features.`)
-      } else {
-        // If we couldn't check (due to RLS) or no admins found, show generic message
-        setSuccessMessage("Admin access granted! Log in with an admin account to access admin features. If you don't have an admin account, contact support.")
-      }
-    } catch (err) {
-      logger.error("Admin login error", err)
-      setAdminError("Failed to grant admin access. Please try again.")
-      setIsLoading(false)
-    }
+    }, 100)
   }
 
   const handleDemoAccess = async () => {
@@ -608,8 +569,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     type="button"
                     onClick={() => {
                       setShowAdminDialog(true)
-                      setAdminPassword("")
-                      setAdminError(null)
                     }}
                     variant="outline"
                     className="border-purple-600/50 text-purple-200 hover:bg-purple-950/30 hover:border-purple-500 rounded-lg h-11 sm:h-12 font-light text-sm min-h-[44px] touch-manipulation"
@@ -882,82 +841,56 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Admin Login Dialog */}
+      {/* Admin Login Dialog - Simplified */}
       <Dialog open={showAdminDialog} onOpenChange={setShowAdminDialog}>
         <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-purple-300 font-light text-lg sm:text-xl">
-              Admin Portal Access
+              Admin Login
             </DialogTitle>
             <DialogDescription className="text-slate-300 font-light text-sm">
-              Enter the admin password to access administrative functions.
+              Admin accounts: akashgandhi07@gmail.com or akashgandhi07+test@gmail.com
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {adminError && (
-              <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
-                <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{adminError}</p>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="admin-password" className="text-slate-200 font-light text-xs sm:text-sm">
-                Admin Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="admin-password"
-                  type={showAdminPassword ? "text" : "password"}
-                  autoComplete="off"
-                  value={adminPassword}
-                  onChange={(e) => {
-                    setAdminPassword(e.target.value)
-                    setAdminError(null)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAdminLogin()
-                    }
-                  }}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                  placeholder="Enter admin password"
-                  autoFocus
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowAdminPassword((prev) => !prev)}
-                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
-                  aria-label={showAdminPassword ? "Hide password" : "Show password"}
-                >
-                  {showAdminPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-slate-400 font-light">
-              After entering the correct password, log in with any account. Your account will be automatically elevated to admin status for this session.
+            <p className="text-sm text-slate-300 font-light">
+              Click below to pre-fill your admin email, then enter your password to login.
             </p>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  setEmail("akashgandhi07@gmail.com")
+                  setShowAdminDialog(false)
+                  setMode("login")
+                }}
+                className="w-full bg-purple-600 text-white hover:bg-purple-700 font-medium min-h-[44px] touch-manipulation"
+              >
+                Login as akashgandhi07@gmail.com
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setEmail("akashgandhi07+test@gmail.com")
+                  setShowAdminDialog(false)
+                  setMode("login")
+                }}
+                className="w-full bg-purple-600/80 text-white hover:bg-purple-700 font-medium min-h-[44px] touch-manipulation"
+              >
+                Login as akashgandhi07+test@gmail.com
+              </Button>
+            </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => {
                 setShowAdminDialog(false)
-                setAdminPassword("")
-                setAdminError(null)
               }}
               className="border-slate-600/50 text-slate-200 hover:bg-white/10 w-full sm:w-auto min-h-[44px] touch-manipulation"
-              disabled={isLoading}
             >
               Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleAdminLogin}
-              className="bg-purple-600 text-white hover:bg-purple-700 font-medium w-full sm:w-auto min-h-[44px] touch-manipulation"
-              disabled={isLoading || !adminPassword}
-            >
-              {isLoading ? "Accessing..." : "Access Admin Portal"}
             </Button>
           </DialogFooter>
         </DialogContent>
