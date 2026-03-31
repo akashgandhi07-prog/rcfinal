@@ -125,22 +125,28 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
     // Send email using Resend (recommended) or another service
     const RESEND_API_KEY = process.env.RESEND_API_KEY
 
-    if (RESEND_API_KEY) {
-      // Using Resend
-      try {
-        const response = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-          },
-          body: JSON.stringify({
-            from: "Suitability Assessment <noreply@regentsconsultancy.co.uk>",
-            to: "info@regentsconsultancy.co.uk",
-            replyTo: sanitizedData.email,
-            subject: `New Suitability Assessment Request - ${sanitizedData.firstName} ${sanitizedData.lastName}`,
-            text: emailContent,
-            html: `
+    if (!RESEND_API_KEY) {
+      return NextResponse.json(
+        { error: "Email service is not configured. Please try again later." },
+        { status: 500 }
+      )
+    }
+
+    // Using Resend
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: "Suitability Assessment <noreply@regentsconsultancy.co.uk>",
+          to: "info@regentsconsultancy.co.uk",
+          reply_to: sanitizedData.email,
+          subject: `New Suitability Assessment Request - ${sanitizedData.firstName} ${sanitizedData.lastName}`,
+          text: emailContent,
+          html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2 style="color: #D4AF37; border-bottom: 2px solid #D4AF37; padding-bottom: 10px;">
                   New Suitability Assessment Request
@@ -178,31 +184,27 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
                   Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
                 </p>
               </div>
-            `,
-          }),
-        })
+          `,
+        }),
+      })
 
-        if (!response.ok) {
-          const error = await response.json()
-          console.error("Resend API error:", error)
-          throw new Error(`Email service error: ${JSON.stringify(error)}`)
-        }
-
-        const result = await response.json()
-        console.log("Email sent successfully:", result.id)
-      } catch (emailError) {
-        console.error("Error sending email via Resend:", emailError)
-        // Fall through to log email content for debugging
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        console.error("Resend API error:", error)
+        return NextResponse.json(
+          { error: error?.message || "Email delivery failed. Please try again later." },
+          { status: 502 }
+        )
       }
-    } else {
-      // Development/testing: log the email content
-      console.log("=== SUITABILITY ASSESSMENT REQUEST ===")
-      console.log("To: info@regentsconsultancy.co.uk")
-      console.log("Subject: New Suitability Assessment Request -", sanitizedData.firstName, sanitizedData.lastName)
-      console.log("\n" + emailContent)
-      console.log("=====================================")
-      console.log("\n⚠️  RESEND_API_KEY not configured. Email not sent.")
-      console.log("Please set up Resend (see EMAIL_SETUP.md) or configure another email service.")
+
+      const result = await response.json()
+      console.log("Email sent successfully:", result.id)
+    } catch (emailError) {
+      console.error("Error sending email via Resend:", emailError)
+      return NextResponse.json(
+        { error: "Email delivery failed. Please try again later." },
+        { status: 502 }
+      )
     }
 
     return NextResponse.json(

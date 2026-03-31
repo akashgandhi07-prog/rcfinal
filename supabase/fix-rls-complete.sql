@@ -12,8 +12,8 @@
 DROP FUNCTION IF EXISTS public.is_admin(UUID);
 DROP FUNCTION IF EXISTS public.is_admin();
 
--- Create the security definer function
-CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID DEFAULT auth.uid())
+-- Create security definer helper with explicit UUID signature
+CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -30,6 +30,17 @@ BEGIN
     AND role = 'admin'
   );
 END;
+$$;
+
+-- Create zero-argument wrapper so policies can call public.is_admin()
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT public.is_admin(auth.uid());
 $$;
 
 -- Grant execute permission to authenticated users and anon (for signup)

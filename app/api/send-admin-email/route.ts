@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
             subject: sanitizedSubject,
             html: sanitizedHtml,
             text: sanitizedText,
-            replyTo: "info@regentsconsultancy.co.uk",
+            reply_to: "info@regentsconsultancy.co.uk",
           }),
         })
 

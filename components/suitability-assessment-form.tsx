@@ -95,6 +95,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle")
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [stepError, setStepError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [countrySearch, setCountrySearch] = useState("")
   const [showCountryDropdown, setShowCountryDropdown] = useState(false)
@@ -149,6 +150,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
     setIsSubmitting(true)
     setSubmitStatus("idle")
     setHasSubmitted(true)
+    setFormError(null)
 
     try {
       const response = await fetch("/api/send-assessment-email", {
@@ -156,7 +158,10 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
-      if (!response.ok) throw new Error("Failed to send email")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to send email")
+      }
 
       setSubmitStatus("success")
       // Clear saved form data from localStorage on successful submission
@@ -182,6 +187,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
       console.error("Error submitting form:", error)
       setSubmitStatus("error")
       setHasSubmitted(false)
+      setFormError(error instanceof Error ? error.message : "There was an error submitting your request. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -229,6 +235,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
     setStep(1)
     setSubmitStatus("idle")
     setStepError(null)
+    setFormError(null)
     setHasSubmitted(false)
     setCountrySearch("")
     setShowCountryDropdown(false)
@@ -250,7 +257,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
         <div className="flex flex-col h-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
           {/* Header */}
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-200 flex-shrink-0">
-            <DialogTitle className="text-xl sm:text-2xl font-serif text-slate-900 font-light">
+            <DialogTitle className="text-center text-xl sm:text-2xl font-serif text-slate-900 font-bold">
               Suitability Assessment Application
             </DialogTitle>
             <p id="form-description" className="sr-only">
@@ -585,7 +592,7 @@ export function SuitabilityAssessmentForm({ trigger }: SuitabilityAssessmentForm
               {submitStatus === "error" && (
                 <div className="mt-5 p-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
                   <p className="text-sm text-red-800">
-                    There was an error submitting your request. Please try again.
+                    {formError || "There was an error submitting your request. Please try again."}
                   </p>
                 </div>
               )}
