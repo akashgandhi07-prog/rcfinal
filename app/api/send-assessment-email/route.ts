@@ -124,32 +124,21 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
 
     // Send email using Resend (recommended) or another service
     const RESEND_API_KEY = process.env.RESEND_API_KEY
-    const allowSubmissionWithoutEmail =
-      process.env.NODE_ENV !== "production" ||
-      process.env.ALLOW_FORM_SUBMISSIONS_WITHOUT_EMAIL === "true"
-
     if (!RESEND_API_KEY) {
-      if (allowSubmissionWithoutEmail) {
-        console.warn(
-          "[ASSESSMENT_FORM_FALLBACK] RESEND_API_KEY is missing; accepting submission without email delivery.",
-          {
-            submittedAt: new Date().toISOString(),
-            submission: sanitizedData,
-          }
-        )
-        return NextResponse.json(
-          {
-            success: true,
-            message: "Assessment request submitted successfully",
-            emailSent: false,
-          },
-          { status: 200 }
-        )
-      }
-
+      console.warn(
+        "[ASSESSMENT_FORM_FALLBACK] RESEND_API_KEY is missing; accepting submission without email delivery.",
+        {
+          submittedAt: new Date().toISOString(),
+          submission: sanitizedData,
+        }
+      )
       return NextResponse.json(
-        { error: "Email service is not configured. Please try again later." },
-        { status: 500 }
+        {
+          success: true,
+          message: "Assessment request submitted successfully",
+          emailSent: false,
+        },
+        { status: 200 }
       )
     }
 
