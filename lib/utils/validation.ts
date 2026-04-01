@@ -1,4 +1,5 @@
 // Input validation and sanitization utilities
+import sanitizeHtmlLib from "sanitize-html"
 
 export function sanitizeString(input: string): string {
   if (typeof input !== "string") return ""
@@ -20,12 +21,38 @@ export function sanitizePhone(phone: string): string {
 
 export function sanitizeHTML(html: string): string {
   if (typeof html !== "string") return ""
-  // Basic HTML sanitization - remove script tags and dangerous attributes
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/on\w+="[^"]*"/gi, "")
-    .replace(/on\w+='[^']*'/gi, "")
-    .replace(/javascript:/gi, "")
+
+  return sanitizeHtmlLib(html, {
+    allowedTags: [
+      "b",
+      "i",
+      "em",
+      "strong",
+      "a",
+      "p",
+      "br",
+      "ul",
+      "ol",
+      "li",
+      "blockquote",
+      "code",
+      "pre",
+      "span",
+    ],
+    allowedAttributes: {
+      a: ["href", "name", "target", "rel"],
+      span: ["class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesAppliedToAttributes: ["href"],
+    allowProtocolRelative: false,
+    transformTags: {
+      a: sanitizeHtmlLib.simpleTransform("a", {
+        rel: "noopener noreferrer",
+        target: "_blank",
+      }),
+    },
+  })
 }
 
 export function validateEmail(email: string): boolean {

@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting
     const clientId = getClientIdentifier(request)
-    const limit = rateLimit(clientId, 5, 60000) // 5 requests per minute
+    const limit = await rateLimit(clientId, 5, 60000) // 5 requests per minute
     
     if (!limit.allowed) {
       return NextResponse.json(
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
     const formData = await request.json()
 
     // Sanitize all inputs
+    const rawWebsite = sanitizeString(formData.website || "")
+    // Only allow http/https URLs to prevent javascript: and data: injection in the email href
+    const safeWebsite = /^https?:\/\//i.test(rawWebsite) ? rawWebsite : ""
+
     const sanitizedData = {
       companyName: sanitizeString(formData.companyName || ""),
       firstName: sanitizeString(formData.firstName || ""),
@@ -48,7 +52,7 @@ export async function POST(request: NextRequest) {
       phoneNumber: sanitizeString(formData.phoneNumber || ""),
       country: sanitizeString(formData.country || ""),
       partnershipType: sanitizeString(formData.partnershipType || ""),
-      website: sanitizeString(formData.website || ""),
+      website: safeWebsite,
       message: sanitizeHTML(formData.message || ""),
     }
 
@@ -102,10 +106,7 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
     if (!RESEND_API_KEY) {
       console.warn(
         "[PARTNER_FORM_FALLBACK] RESEND_API_KEY is missing; accepting submission without email delivery.",
-        {
-          submittedAt: new Date().toISOString(),
-          submission: sanitizedData,
-        }
+        { submittedAt: new Date().toISOString() }
       )
       return NextResponse.json(
         {
@@ -174,8 +175,7 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
         )
       }
 
-      const result = await response.json()
-      console.log("Email sent successfully:", result.id)
+      await response.json()
     } catch (emailError) {
       console.error("Error sending email via Resend:", emailError)
       return NextResponse.json(

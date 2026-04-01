@@ -9,15 +9,23 @@ const optionalEnvVars = [
   "RESEND_API_KEY",
   "NEXT_PUBLIC_DEMO_PASSWORD",
   "NEXT_PUBLIC_PRIMARY_ADMIN_EMAIL",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "SENTRY_DSN",
 ] as const
 
 export function validateEnvVars(): void {
   const missing: string[] = []
+  const isProduction = process.env.NODE_ENV === "production"
 
   for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
       missing.push(envVar)
     }
+  }
+
+  if (isProduction && !process.env.NEXT_PUBLIC_ADMIN_EMAILS) {
+    missing.push("NEXT_PUBLIC_ADMIN_EMAILS")
   }
 
   if (missing.length > 0) {
@@ -32,6 +40,12 @@ export function validateEnvVars(): void {
     if (!process.env[envVar]) {
       console.warn(`⚠️  Optional environment variable not set: ${envVar}`)
     }
+  }
+
+  if (isProduction && !process.env.NEXT_PUBLIC_DEMO_PASSWORD) {
+    console.warn(
+      "⚠️  NEXT_PUBLIC_DEMO_PASSWORD is not set in production. Demo access will be disabled."
+    )
   }
 }
 

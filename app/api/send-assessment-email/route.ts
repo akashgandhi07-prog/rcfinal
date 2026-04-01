@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting
     const clientId = getClientIdentifier(request)
-    const limit = rateLimit(clientId, 5, 60000) // 5 requests per minute
+    const limit = await rateLimit(clientId, 5, 60000) // 5 requests per minute
     
     if (!limit.allowed) {
       return NextResponse.json(
@@ -127,10 +127,7 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
     if (!RESEND_API_KEY) {
       console.warn(
         "[ASSESSMENT_FORM_FALLBACK] RESEND_API_KEY is missing; accepting submission without email delivery.",
-        {
-          submittedAt: new Date().toISOString(),
-          submission: sanitizedData,
-        }
+        { submittedAt: new Date().toISOString() }
       )
       return NextResponse.json(
         {
@@ -207,8 +204,7 @@ Submitted: ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}
         )
       }
 
-      const result = await response.json()
-      console.log("Email sent successfully:", result.id)
+      await response.json()
     } catch (emailError) {
       console.error("Error sending email via Resend:", emailError)
       return NextResponse.json(

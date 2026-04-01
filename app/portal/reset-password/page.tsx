@@ -74,8 +74,8 @@ export default function ResetPasswordPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long")
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long")
       return
     }
 
@@ -172,7 +172,7 @@ export default function ResetPasswordPage() {
                     placeholder="Enter new password"
                     required
                     disabled={isLoading}
-                    minLength={6}
+                    minLength={8}
                   />
                   <button
                     type="button"
@@ -183,7 +183,7 @@ export default function ResetPasswordPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <p className="text-xs text-slate-400 font-light">Must be at least 6 characters</p>
+                <p className="text-xs text-slate-400 font-light">Must be at least 8 characters</p>
               </div>
 
               <div className="space-y-2">
@@ -200,7 +200,7 @@ export default function ResetPasswordPage() {
                     placeholder="Confirm new password"
                     required
                     disabled={isLoading}
-                    minLength={6}
+                    minLength={8}
                   />
                   <button
                     type="button"

@@ -1,25 +1,13 @@
-<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    @media (prefers-color-scheme: light) {
-      .bg { fill: #020617; }
-      .fg { fill: #FACC15; }
-    }
-    @media (prefers-color-scheme: dark) {
-      .bg { fill: #020617; }
-      .fg { fill: #FACC15; }
-    }
-  </style>
-  <rect class="bg" width="180" height="180" rx="40" />
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#0B1120"/>
   <text
-    x="50%"
-    y="50%"
+    x="16"
+    y="17"
     dominant-baseline="central"
     text-anchor="middle"
-    class="fg"
-    font-family="serif"
-    font-size="96"
-    letter-spacing="4"
-  >
-    R
-  </text>
+    fill="#D4AF37"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="23"
+    font-weight="bold"
+  >R</text>
 </svg>

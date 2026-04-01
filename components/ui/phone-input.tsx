@@ -14,7 +14,7 @@ type PhoneInputProps = {
 }
 
 // Comprehensive list of all country codes - sorted alphabetically by country name
-const COUNTRIES_RAW = [
+const COUNTRIES_RAW: { code: string; label: string; flag: string }[] = [
   { code: "+93", label: "Afghanistan", flag: "🇦🇫" },
   { code: "+355", label: "Albania", flag: "🇦🇱" },
   { code: "+213", label: "Algeria", flag: "🇩🇿" },
@@ -165,8 +165,8 @@ const COUNTRIES_RAW = [
   { code: "+974", label: "Qatar", flag: "🇶🇦" },
   { code: "+40", label: "Romania", flag: "🇷🇴" },
   { code: "+250", label: "Rwanda", flag: "🇷🇼" },
-  { code: "+247", label: "Saint Helena", flag: "🇸🇭" },
-  { code: "+290", label: "Saint Helena", flag: "🇸🇭" },
+  { code: "+247", label: "Saint Helena (Ascension)", flag: "🇸🇭" },
+  { code: "+290", label: "Saint Helena (Main)", flag: "🇸🇭" },
   { code: "+508", label: "Saint Pierre and Miquelon", flag: "🇵🇲" },
   { code: "+685", label: "Samoa", flag: "🇼🇸" },
   { code: "+378", label: "San Marino", flag: "🇸🇲" },
@@ -187,7 +187,7 @@ const COUNTRIES_RAW = [
   { code: "+94", label: "Sri Lanka", flag: "🇱🇰" },
   { code: "+249", label: "Sudan", flag: "🇸🇩" },
   { code: "+597", label: "Suriname", flag: "🇸🇷" },
-  { code: "+268", label: "Swaziland", flag: "🇸🇿" },
+  { code: "+268", label: "Eswatini", flag: "🇸🇿" },
   { code: "+46", label: "Sweden", flag: "🇸🇪" },
   { code: "+41", label: "Switzerland", flag: "🇨🇭" },
   { code: "+963", label: "Syria", flag: "🇸🇾" },
@@ -207,7 +207,8 @@ const COUNTRIES_RAW = [
   { code: "+380", label: "Ukraine", flag: "🇺🇦" },
   { code: "+971", label: "United Arab Emirates", flag: "🇦🇪" },
   { code: "+44", label: "United Kingdom", flag: "🇬🇧" },
-  { code: "+1", label: "USA/Canada", flag: "🇺🇸" },
+  { code: "+1-US", label: "United States", flag: "🇺🇸" },
+  { code: "+1-CA", label: "Canada", flag: "🇨🇦" },
   { code: "+598", label: "Uruguay", flag: "🇺🇾" },
   { code: "+998", label: "Uzbekistan", flag: "🇺🇿" },
   { code: "+678", label: "Vanuatu", flag: "🇻🇺" },
@@ -220,8 +221,16 @@ const COUNTRIES_RAW = [
   { code: "+263", label: "Zimbabwe", flag: "🇿🇼" },
 ]
 
-// Sort alphabetically by country name (label)
-const COUNTRIES = COUNTRIES_RAW.sort((a, b) => a.label.localeCompare(b.label))
+// Sort alphabetically by country name (label), without mutating the original array
+const COUNTRIES = [...COUNTRIES_RAW].sort((a, b) => a.label.localeCompare(b.label))
+
+// Returns the actual dial code (strips internal suffix used to disambiguate e.g. "+1-US" → "+1")
+function toDialCode(code: string): string {
+  return code.split("-")[0]
+}
+
+// Hoist default country outside component to avoid recalculating every render
+const defaultCountry = COUNTRIES.find(c => c.code === "+44") ?? COUNTRIES[0]
 
 export function PhoneInput({
   value,
@@ -232,8 +241,6 @@ export function PhoneInput({
   disabled,
   className,
 }: PhoneInputProps) {
-  // Default to UK (+44) as it's most common for this app
-  const defaultCountry = COUNTRIES.find(c => c.code === "+44") || COUNTRIES[0]
   const [countryCode, setCountryCode] = React.useState<string>(defaultCountry.code)
   const [localNumber, setLocalNumber] = React.useState<string>("")
 
@@ -244,12 +251,14 @@ export function PhoneInput({
       setLocalNumber("")
       return
     }
-    // Sort by code length (longest first) to match longer codes first (e.g., +351 before +3)
-    const sortedCountries = [...COUNTRIES].sort((a, b) => b.code.length - a.code.length)
-    const match = sortedCountries.find((c) => value.startsWith(c.code))
+    // Sort by dial code length (longest first) to match e.g. +351 before +3
+    const sortedCountries = [...COUNTRIES].sort(
+      (a, b) => toDialCode(b.code).length - toDialCode(a.code).length
+    )
+    const match = sortedCountries.find((c) => value.startsWith(toDialCode(c.code)))
     if (match) {
       setCountryCode(match.code)
-      setLocalNumber(value.replace(match.code, "").trim())
+      setLocalNumber(value.replace(toDialCode(match.code), "").trim())
     } else {
       setCountryCode(defaultCountry.code)
       setLocalNumber(value)
@@ -258,7 +267,7 @@ export function PhoneInput({
 
   const emitChange = (code: string, local: string) => {
     const trimmed = local.replace(/^0+/, "")
-    const combined = trimmed ? `${code} ${trimmed}` : ""
+    const combined = trimmed ? `${toDialCode(code)} ${trimmed}` : ""
     onChange(combined)
   }
 
@@ -279,13 +288,13 @@ export function PhoneInput({
 
   return (
     <div className={cn("flex gap-1.5 sm:gap-2 w-full min-w-0", className)}>
-      <div className="flex-shrink-0 relative">
+      <div className="flex-shrink-0 relative w-[85px] sm:w-[140px] md:w-[170px]">
         {/* Mobile display - shows code + flag */}
         <div className="absolute inset-0 pointer-events-none sm:hidden flex items-center justify-center text-xs text-slate-900 whitespace-nowrap z-10 pr-5">
-          <span>{selectedCountry.code} {selectedCountry.flag}</span>
+          <span>{toDialCode(selectedCountry.code)} {selectedCountry.flag}</span>
         </div>
         <select
-          className="h-10 rounded-lg border border-slate-300 bg-white pl-1.5 sm:pl-3 pr-6 sm:pr-10 text-xs sm:text-sm text-transparent sm:text-slate-900 focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 w-[85px] sm:w-[170px] appearance-none bg-no-repeat bg-right relative cursor-pointer hover:border-slate-400 transition-colors"
+          className="h-10 rounded-lg border border-slate-300 bg-white pl-1.5 sm:pl-3 pr-6 sm:pr-10 text-xs sm:text-sm text-transparent sm:text-slate-900 focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 w-full appearance-none bg-no-repeat bg-right relative cursor-pointer hover:border-slate-400 transition-colors"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
             backgroundPosition: 'right 0.75rem center',
@@ -294,11 +303,11 @@ export function PhoneInput({
           value={countryCode}
           onChange={handleCountryChange}
           disabled={disabled}
-          title={`${selectedCountry.flag} ${selectedCountry.label} (${selectedCountry.code})`}
+          title={`${selectedCountry.flag} ${selectedCountry.label} (${toDialCode(selectedCountry.code)})`}
         >
           {COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>
-              {c.code} {c.flag} {c.label}
+              {toDialCode(c.code)} {c.flag} {c.label}
             </option>
           ))}
         </select>
@@ -311,11 +320,9 @@ export function PhoneInput({
         disabled={disabled}
         value={localNumber}
         onChange={handleLocalChange}
-        className="h-10 flex-1 min-w-[120px] rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 hover:border-slate-400 transition-colors"
+        className="h-10 flex-1 min-w-0 rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 hover:border-slate-400 transition-colors"
         placeholder="Mobile number"
       />
     </div>
   )
 }
-
-

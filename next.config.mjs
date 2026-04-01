@@ -1,9 +1,8 @@
+import { withSentryConfig } from "@sentry/nextjs"
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Keep dynamic features (API routes, auth, portal) enabled for Cloudflare/Next
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     unoptimized: true,
   },
@@ -26,10 +25,6 @@ const nextConfig = {
         value: 'nosniff'
       },
       {
-        key: 'X-XSS-Protection',
-        value: '1; mode=block'
-      },
-      {
         key: 'Referrer-Policy',
         value: 'strict-origin-when-cross-origin'
       },
@@ -39,7 +34,7 @@ const nextConfig = {
       },
       {
         key: 'Content-Security-Policy',
-        value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.resend.com; frame-ancestors 'self';"
+        value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.resend.com https://vitals.vercel-insights.com https://vercel.live https://*.ingest.sentry.io; frame-ancestors 'self';"
       }
     ]
 
@@ -97,4 +92,11 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+})

@@ -19,28 +19,68 @@ const inter = Inter({
   display: "swap",
 })
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://regentsconsultancy.com"
+
 export const metadata: Metadata = {
-  title: "The Regent's Consultancy | Elite Admissions Strategy for UK Universities",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "The Regent's Consultancy | Elite Medical Admissions Strategy",
+    template: "%s | The Regent's Consultancy",
+  },
   description:
-    "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors and Dentists and Qualified Veterinary Surgeons.",
-  generator: "v0.app",
-  icons: {
-    icon: [
+    "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors, Dentists and Qualified Veterinary Surgeons.",
+  keywords: [
+    "medical school admissions UK",
+    "UCAT preparation",
+    "UCAS medicine application",
+    "dentistry admissions UK",
+    "veterinary medicine admissions",
+    "medical admissions consultant",
+    "NHS doctor mentor",
+    "UK university admissions strategy",
+    "private admissions consultancy",
+    "medical school interview preparation",
+  ],
+  authors: [{ name: "The Regent's Consultancy" }],
+  creator: "The Regent's Consultancy",
+  publisher: "The Regent's Consultancy",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: siteUrl,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_GB",
+    url: siteUrl,
+    siteName: "The Regent's Consultancy",
+    title: "The Regent's Consultancy | Elite Medical Admissions Strategy",
+    description:
+      "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors, Dentists and Qualified Veterinary Surgeons.",
+    images: [
       {
-        url: "/icon-light-32x32.png?v=2",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png?v=2",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg?v=2",
-        type: "image/svg+xml",
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "The Regent's Consultancy — Elite Medical Admissions Strategy",
       },
     ],
-    apple: "/apple-icon.png?v=2",
-    shortcut: "/icon-light-32x32.png?v=2",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The Regent's Consultancy | Elite Medical Admissions Strategy",
+    description:
+      "Bespoke guidance for Medicine, Dentistry, and Veterinary Medicine. Led by practising NHS Doctors, Dentists and Qualified Veterinary Surgeons.",
+    images: ["/og-image.jpg"],
   },
 }
 

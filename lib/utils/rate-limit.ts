@@ -1,10 +1,7 @@
-// Simple in-memory rate limiter
-// NOTE: This is a basic implementation that works for single-instance deployments.
-// For production with multiple instances/edge functions, consider using:
-// - Redis-based rate limiting
-// - Upstash Rate Limit
-// - Vercel Edge Config with KV storage
-// - Cloudflare Workers KV
+import { Ratelimit } from "@upstash/ratelimit"
+import { Redis } from "@upstash/redis"
+
+// Local fallback for development when Upstash env vars are unavailable.
 
 interface RateLimitStore {
   [key: string]: {
@@ -14,12 +11,45 @@ interface RateLimitStore {
 }
 
 const store: RateLimitStore = {}
+const distributedLimiters = new Map<string, Ratelimit>()
 
-export function rateLimit(
+const hasUpstashConfig = Boolean(
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+)
+
+function getDistributedLimiter(maxRequests: number, windowMs: number): Ratelimit | null {
+  if (!hasUpstashConfig) return null
+
+  const key = `${maxRequests}:${windowMs}`
+  const existingLimiter = distributedLimiters.get(key)
+  if (existingLimiter) return existingLimiter
+
+  const limiter = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
+    analytics: true,
+    prefix: "rate-limit",
+  })
+
+  distributedLimiters.set(key, limiter)
+  return limiter
+}
+
+export async function rateLimit(
   identifier: string,
   maxRequests: number = 10,
   windowMs: number = 60000 // 1 minute
-): { allowed: boolean; remaining: number; resetTime: number } {
+): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
+  const distributedLimiter = getDistributedLimiter(maxRequests, windowMs)
+  if (distributedLimiter) {
+    const result = await distributedLimiter.limit(identifier)
+    return {
+      allowed: result.success,
+      remaining: Math.max(result.remaining, 0),
+      resetTime: result.reset,
+    }
+  }
+
   const now = Date.now()
   const key = identifier
 
@@ -63,10 +93,11 @@ export function rateLimit(
 }
 
 export function getClientIdentifier(request: Request): string {
-  // Try to get IP from various headers (for production, use proper IP extraction)
+  // Prefer CDN/proxy headers first, then fallback.
+  const cfConnectingIp = request.headers.get("cf-connecting-ip")
   const forwarded = request.headers.get("x-forwarded-for")
   const realIp = request.headers.get("x-real-ip")
-  const ip = forwarded?.split(",")[0] || realIp || "unknown"
+  const ip = cfConnectingIp || forwarded?.split(",")[0]?.trim() || realIp || "unknown"
   return ip
 }
 

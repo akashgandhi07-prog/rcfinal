@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createServerClient } from "@supabase/ssr"
 import { rateLimit, getClientIdentifier } from "@/lib/utils/rate-limit"
 import { sanitizeString, sanitizeEmail, sanitizeHTML, validateEmail, validateRequired } from "@/lib/utils/validation"
 
@@ -30,18 +31,47 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting - more permissive for admin operations
     const clientId = getClientIdentifier(request)
-    const limit = rateLimit(clientId, 20, 60000) // 20 requests per minute
+    const limit = await rateLimit(clientId, 20, 60000) // 20 requests per minute
     
     if (!limit.allowed) {
       return NextResponse.json(
         { error: "Too many requests. Please wait a moment and try again." },
-        { 
+        {
           status: 429,
           headers: {
             "Retry-After": String(Math.ceil((limit.resetTime - Date.now()) / 1000)),
           },
         }
       )
+    }
+
+    // Verify caller is an authenticated admin
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
+
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: () => {},
+      },
+    })
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { data: userRecord } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single()
+
+    if (!userRecord || userRecord.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const body = await request.json()

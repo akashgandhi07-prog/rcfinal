@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Block private portal and API routes
+Disallow: /portal/
+Disallow: /api/
+
+# Update this URL to match your production domain
+Sitemap: https://regentsconsultancy.com/sitemap.xml

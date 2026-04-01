@@ -22,6 +22,13 @@ interface LoginScreenProps {
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
   const router = useRouter()
+  const configuredAdminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean)
+  const demoPasswordFromEnv = process.env.NEXT_PUBLIC_DEMO_PASSWORD?.trim() ?? ""
+  const isDemoAccessEnabled = demoPasswordFromEnv.length > 0
+
   const [mode, setMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -49,6 +56,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("")
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false)
+  const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null)
   
   // Admin login state
   const [showAdminDialog, setShowAdminDialog] = useState(false)
@@ -95,10 +103,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
       if (data.user) {
         // Admin emails that should automatically get admin role
-        const adminEmails = [
-          "akashgandhi07@gmail.com",
-          "akashgandhi07+test@gmail.com"
-        ]
+        const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
+          .split(",")
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean)
         const isAdminEmail = adminEmails.includes(normalizedEmail)
 
         // Fetch user data in parallel with session check for better performance
@@ -146,16 +154,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             }
           }
 
-          // Check if user is approved (admins are always approved)
-          const isAdmin = userData.role === "admin"
-          const isApproved = userData.approval_status === "approved" || isAdmin
-          
-          if (!isApproved && !isAdmin) {
-            await supabase.auth.signOut()
-            setError("Your account is pending approval. Please contact an administrator.")
-            setIsLoading(false)
-            return
-          }
         }
 
         // Activity logging removed
@@ -175,6 +173,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   }
 
   const handleBypass = () => {
+    if (!isDemoAccessEnabled) {
+      setError("Demo access is currently unavailable.")
+      return
+    }
     // Open demo password dialog instead of directly proceeding
     setShowDemoDialog(true)
     setDemoPassword("")
@@ -186,16 +188,16 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     const normalizedEmail = forgotPasswordEmail.trim().toLowerCase()
 
     if (!normalizedEmail) {
-      setError("Please enter your email address")
+      setForgotPasswordError("Please enter your email address")
       return
     }
 
     setForgotPasswordLoading(true)
-    setError(null)
+    setForgotPasswordError(null)
     setForgotPasswordSuccess(false)
 
     try {
-      const redirectTo = typeof window !== 'undefined' 
+      const redirectTo = typeof window !== 'undefined'
         ? `${window.location.origin}/portal/reset-password`
         : '/portal/reset-password'
 
@@ -204,7 +206,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       })
 
       if (resetError) {
-        setError(resetError.message)
+        setForgotPasswordError(resetError.message)
         return
       }
 
@@ -212,7 +214,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       setForgotPasswordEmail("")
     } catch (err) {
       logger.error("Password reset error", err)
-      setError("An error occurred. Please try again.")
+      setForgotPasswordError("An error occurred. Please try again.")
     } finally {
       setForgotPasswordLoading(false)
     }
@@ -229,11 +231,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
       if (!normalizedEmail || !password || !confirmPassword) {
         setError("Please complete all required fields.")
+        setIsLoading(false)
         return
       }
 
       if (password !== confirmPassword) {
         setError("Passwords do not match.")
+        setIsLoading(false)
         return
       }
 
@@ -241,12 +245,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       const strength = validatePasswordStrength(password)
       if (!strength.isValid) {
         setError(`Password is too weak. ${strength.feedback.join(" ")}`)
+        setIsLoading(false)
         return
       }
 
       if (captchaAnswer.trim() !== captchaExpected) {
         setError("Captcha answer is incorrect. Please try again.")
         generateCaptcha()
+        setIsLoading(false)
         return
       }
 
@@ -283,7 +289,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         const needsOnboarding = signupRole === "student" || signupRole === "parent"
         
         // Create a corresponding profile row with pending onboarding and approval
-        const { data: insertData, error: insertError } = await supabase.from("users").upsert(
+        const { error: insertError } = await supabase.from("users").upsert(
           {
             id: data.user.id,
             email: normalizedEmail,
@@ -345,26 +351,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     }
   }
 
-  const handleAdminLogin = async () => {
-    // Simply pre-fill the admin email and show instructions
-    setShowAdminDialog(false)
-    setEmail("akashgandhi07@gmail.com")
-    setMode("login")
-    setSuccessMessage("Enter your password to login. Admin accounts are automatically approved.")
-    
-    // Focus the password field after a brief delay
-    setTimeout(() => {
-      const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement
-      if (passwordInput) {
-        passwordInput.focus()
-      }
-    }, 100)
-  }
-
   const handleDemoAccess = async () => {
-    // Validate demo password from environment variable (fallback for development)
-    const expectedPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD || (process.env.NODE_ENV === "development" ? "demo" : "")
-    
+    const expectedPassword = demoPasswordFromEnv
     if (!expectedPassword || demoPassword !== expectedPassword) {
       setDemoError("Incorrect demo password. Please try again.")
       return
@@ -390,12 +378,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         })
         
         if (signUpData?.user) {
-          // Create user record
+          // Create user record — approved so the portal lets them straight in
           await supabase.from("users").upsert({
             id: signUpData.user.id,
             email: demoEmail,
             role: "student",
-            onboarding_status: "pending",
+            approval_status: "approved",
+            onboarding_status: "complete",
           }, { onConflict: "id" })
           
           // Sign in with the created account
@@ -405,12 +394,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           })
         }
       } else if (authData?.user) {
-        // Ensure user record exists with pending onboarding
+        // Ensure user record exists — approved so the portal lets them straight in
         await supabase.from("users").upsert({
           id: authData.user.id,
           email: authData.user.email || "demo@regents.com",
           role: "student",
-          onboarding_status: "pending",
+          approval_status: "approved",
+          onboarding_status: "complete",
         }, { onConflict: "id" })
       }
 
@@ -556,15 +546,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   {isLoading ? "Signing in..." : "Secure Login"}
                 </Button>
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    onClick={handleBypass}
-                    variant="outline"
-                    className="border-slate-600/50 text-slate-200 hover:bg-white/10 hover:border-slate-500 rounded-lg h-11 sm:h-12 font-light text-sm min-h-[44px] touch-manipulation"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Loading..." : "Demo User"}
-                  </Button>
+                  {isDemoAccessEnabled ? (
+                    <Button
+                      type="button"
+                      onClick={handleBypass}
+                      variant="outline"
+                      className="border-slate-600/50 text-slate-200 hover:bg-white/10 hover:border-slate-500 rounded-lg h-11 sm:h-12 font-light text-sm min-h-[44px] touch-manipulation"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Loading..." : "Demo User"}
+                    </Button>
+                  ) : (
+                    <div />
+                  )}
                   <Button
                     type="button"
                     onClick={() => {
@@ -763,83 +757,84 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         </CardContent>
       </Card>
 
-      {/* Demo Password Dialog */}
-      <Dialog open={showDemoDialog} onOpenChange={setShowDemoDialog}>
-        <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white max-w-[calc(100vw-2rem)] sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-[#D4AF37] font-light text-lg sm:text-xl">
-              Demo Access
-            </DialogTitle>
-            <DialogDescription className="text-slate-300 font-light text-sm">
-              Please enter the demo password to continue.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {demoError && (
-              <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
-                <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{demoError}</p>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="demo-password" className="text-slate-200 font-light text-xs sm:text-sm">
-                Demo Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="demo-password"
-                  type={showDemoPassword ? "text" : "password"}
-                  autoComplete="off"
-                  value={demoPassword}
-                  onChange={(e) => {
-                    setDemoPassword(e.target.value)
-                    setDemoError(null)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleDemoAccess()
-                    }
-                  }}
-                  className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
-                  placeholder="Enter demo password"
-                  autoFocus
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowDemoPassword((prev) => !prev)}
-                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
-                  aria-label={showDemoPassword ? "Hide password" : "Show password"}
-                >
-                  {showDemoPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+      {isDemoAccessEnabled && (
+        <Dialog open={showDemoDialog} onOpenChange={setShowDemoDialog}>
+          <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white max-w-[calc(100vw-2rem)] sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-[#D4AF37] font-light text-lg sm:text-xl">
+                Demo Access
+              </DialogTitle>
+              <DialogDescription className="text-slate-300 font-light text-sm">
+                Please enter the demo password to continue.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {demoError && (
+                <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
+                  <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{demoError}</p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="demo-password" className="text-slate-200 font-light text-xs sm:text-sm">
+                  Demo Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="demo-password"
+                    type={showDemoPassword ? "text" : "password"}
+                    autoComplete="off"
+                    value={demoPassword}
+                    onChange={(e) => {
+                      setDemoPassword(e.target.value)
+                      setDemoError(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleDemoAccess()
+                      }
+                    }}
+                    className="bg-white/5 backdrop-blur-sm border-slate-600/50 text-white placeholder:text-slate-500 rounded-lg h-11 sm:h-12 pr-12 text-base focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20"
+                    placeholder="Enter demo password"
+                    autoFocus
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDemoPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 min-w-[44px] min-h-[44px] justify-center touch-manipulation"
+                    aria-label={showDemoPassword ? "Hide password" : "Show password"}
+                  >
+                    {showDemoPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowDemoDialog(false)
-                setDemoPassword("")
-                setDemoError(null)
-              }}
-              className="border-slate-600/50 text-slate-200 hover:bg-white/10 w-full sm:w-auto min-h-[44px] touch-manipulation"
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleDemoAccess}
-              className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium w-full sm:w-auto min-h-[44px] touch-manipulation"
-              disabled={isLoading}
-            >
-              {isLoading ? "Accessing..." : "Continue"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDemoDialog(false)
+                  setDemoPassword("")
+                  setDemoError(null)
+                }}
+                className="border-slate-600/50 text-slate-200 hover:bg-white/10 w-full sm:w-auto min-h-[44px] touch-manipulation"
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDemoAccess}
+                className="bg-[#D4AF37] text-slate-950 hover:bg-[#D4AF37]/90 font-medium w-full sm:w-auto min-h-[44px] touch-manipulation"
+                disabled={isLoading}
+              >
+                {isLoading ? "Accessing..." : "Continue"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Admin Login Dialog - Simplified */}
       <Dialog open={showAdminDialog} onOpenChange={setShowAdminDialog}>
@@ -849,36 +844,32 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               Admin Login
             </DialogTitle>
             <DialogDescription className="text-slate-300 font-light text-sm">
-              Admin accounts: akashgandhi07@gmail.com or akashgandhi07+test@gmail.com
+              Select an authorized admin account to prefill the login email.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-slate-300 font-light">
-              Click below to pre-fill your admin email, then enter your password to login.
-            </p>
+            <p className="text-sm text-slate-300 font-light">Click below, then enter your password to sign in.</p>
             <div className="space-y-2">
-              <Button
-                type="button"
-                onClick={() => {
-                  setEmail("akashgandhi07@gmail.com")
-                  setShowAdminDialog(false)
-                  setMode("login")
-                }}
-                className="w-full bg-purple-600 text-white hover:bg-purple-700 font-medium min-h-[44px] touch-manipulation"
-              >
-                Login as akashgandhi07@gmail.com
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  setEmail("akashgandhi07+test@gmail.com")
-                  setShowAdminDialog(false)
-                  setMode("login")
-                }}
-                className="w-full bg-purple-600/80 text-white hover:bg-purple-700 font-medium min-h-[44px] touch-manipulation"
-              >
-                Login as akashgandhi07+test@gmail.com
-              </Button>
+              {configuredAdminEmails.length > 0 ? (
+                configuredAdminEmails.map((adminEmail) => (
+                  <Button
+                    key={adminEmail}
+                    type="button"
+                    onClick={() => {
+                      setEmail(adminEmail)
+                      setShowAdminDialog(false)
+                      setMode("login")
+                    }}
+                    className="w-full bg-purple-600 text-white hover:bg-purple-700 font-medium min-h-[44px] touch-manipulation"
+                  >
+                    Login as {adminEmail}
+                  </Button>
+                ))
+              ) : (
+                <p className="text-xs text-slate-400 font-light">
+                  No admin emails are configured in environment variables.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -897,7 +888,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       </Dialog>
 
       {/* Forgot Password Dialog */}
-      <Dialog open={showForgotPasswordDialog} onOpenChange={setShowForgotPasswordDialog}>
+      <Dialog open={showForgotPasswordDialog} onOpenChange={(open) => {
+        setShowForgotPasswordDialog(open)
+        if (!open) {
+          setForgotPasswordError(null)
+          setForgotPasswordSuccess(false)
+          setForgotPasswordEmail("")
+        }
+      }}>
         <DialogContent className="bg-[#0B1120] border-slate-700/50 text-white max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[#D4AF37] font-light text-lg sm:text-xl">
@@ -930,9 +928,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </div>
           ) : (
             <form onSubmit={handleForgotPassword} className="space-y-4 py-4">
-              {error && (
+              {forgotPasswordError && (
                 <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg">
-                  <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{error}</p>
+                  <p className="text-xs sm:text-sm text-red-300 font-light leading-relaxed">{forgotPasswordError}</p>
                 </div>
               )}
               <div className="space-y-2">
@@ -959,7 +957,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   onClick={() => {
                     setShowForgotPasswordDialog(false)
                     setForgotPasswordEmail("")
-                    setError(null)
+                    setForgotPasswordError(null)
                     setForgotPasswordSuccess(false)
                   }}
                   className="border-slate-600/50 text-slate-200 hover:bg-white/10 w-full sm:w-auto min-h-[44px] touch-manipulation"

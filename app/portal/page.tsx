@@ -47,7 +47,10 @@ export default function PortalPage() {
 
     // Set admin flags
     setIsAdmin(user.role === "admin")
-    const adminEmails = ["akashgandhi07@gmail.com", "akashgandhi07+test@gmail.com"]
+    const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean)
     setIsSuperAdmin(user.email ? adminEmails.includes(user.email.toLowerCase()) : false)
     
     // Set view mode based on role
@@ -151,52 +154,31 @@ export default function PortalPage() {
         return
       }
 
-      // Check for admin access grant from login screen
-      const adminAccessGranted = typeof window !== "undefined" && sessionStorage.getItem("admin_access_granted") === "true"
-      const adminAccessTime = typeof window !== "undefined" ? sessionStorage.getItem("admin_access_timestamp") : null
-      const isRecentGrant = adminAccessTime && (Date.now() - parseInt(adminAccessTime)) < 3600000 // 1 hour
+      // Auto-elevate known admin emails to admin role in the database
+      const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean)
+      const isAdminEmail = !!currentUser.email && adminEmails.includes(currentUser.email.toLowerCase())
 
-      // Auto-elevate admin emails to admin role
-      const adminEmails = ["akashgandhi07@gmail.com", "akashgandhi07+test@gmail.com"]
-      const isAdminEmail = currentUser.email && adminEmails.includes(currentUser.email.toLowerCase())
-      
       let finalUser = currentUser
-      
-      if ((isAdminEmail || (adminAccessGranted && isRecentGrant)) && currentUser.role !== "admin") {
+
+      if (isAdminEmail && currentUser.role !== "admin") {
         const updated = await updateUser(currentUser.id, {
           role: "admin",
           approval_status: "approved",
           onboarding_status: "complete",
         })
         if (updated) {
-          clearUserCache() // Clear cache after update
-          // Force refresh again to get updated user
+          clearUserCache()
           const refreshedUser = await getCurrentUser(true)
-          if (refreshedUser) {
-            finalUser = refreshedUser
-          } else if (updated) {
-            // Fallback to updated user if refresh fails
-            finalUser = updated
-          }
-          if (adminAccessGranted) {
-            sessionStorage.removeItem("admin_access_granted")
-            sessionStorage.removeItem("admin_access_timestamp")
-          }
+          finalUser = refreshedUser ?? updated
         }
       }
 
       // Use finalUser which may have been updated to admin
-      const isAdmin = finalUser.role === "admin"
-      const isApproved = finalUser.approval_status === "approved" || isAdmin
-
-      if (!isApproved) {
-        await supabase.auth.signOut()
-        setIsAuthenticated(false)
-        setUser(null)
-        setIsLoading(false)
-        return
-      }
-
+      // Always authenticate — pending/rejected users see holding screens rather than
+      // being silently signed out and looping back to login.
       setIsAuthenticated(true)
       setUser(finalUser)
     } catch (error) {
@@ -319,7 +301,7 @@ export default function PortalPage() {
     return <LoginScreen onLogin={() => setIsAuthenticated(true)} />
   }
 
-  const approvalStatus = (user?.approval_status as ApprovalStatus | undefined) || "approved"
+  const approvalStatus = (user?.approval_status as ApprovalStatus | undefined) || "pending"
 
   // If account is not yet approved by admin, show holding screen instead of onboarding/dashboard
   if (approvalStatus === "pending") {
@@ -381,8 +363,8 @@ export default function PortalPage() {
 
   // Filter out UCAT from sidebar if not applicable
   const availableViews: ActiveView[] = showUCAT
-    ? ["dashboard", "profile", "portfolio", "ucat", "strategy", "interview", "messages", "settings"]
-    : ["dashboard", "profile", "portfolio", "strategy", "interview", "messages", "settings"]
+    ? ["dashboard", "profile", "portfolio", "ucat", "strategy", "interview", "messages", "resources", "settings"]
+    : ["dashboard", "profile", "portfolio", "strategy", "interview", "messages", "resources", "settings"]
 
   if (isAdmin) {
     availableViews.push("admin")
