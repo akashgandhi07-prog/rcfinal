@@ -316,8 +316,8 @@ export function PartnerWithUsForm({ trigger }: PartnerWithUsFormProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm() }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent 
-        className="bg-white border-slate-200 max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden rounded-xl sm:rounded-2xl p-0 mx-2 sm:mx-4 md:mx-auto"
+      <DialogContent
+        className="bg-white border-slate-200 w-[calc(100vw-2rem)] max-w-3xl sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden rounded-xl sm:rounded-2xl p-0"
         aria-describedby="partner-form-description"
       >
         <div className="flex flex-col h-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
